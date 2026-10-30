@@ -10,7 +10,7 @@ use crate::builtins::{self, Io, Runtime};
 use crate::error::{ErrorKind, Result, ZyxError};
 use crate::ir::*;
 use crate::ops::{self, err, expect_bool, type_err};
-use crate::value::{Cell, Closure, Instance, StructType, Value, values_equal};
+use crate::value::{Cell, Closure, StructType, Value, values_equal};
 
 /// 调用深度上限（reference.md 5.4）。
 const MAX_DEPTH: usize = 10_000;
@@ -161,17 +161,9 @@ impl Interp {
                     self.store(*slot, Value::Func(c), f);
                 }
                 Hoist::Impl { target, name, methods, pos } => {
-                    let Value::StructType(ty) = self.load(*target, name, *pos, f)? else {
-                        return Err(type_err(*pos, format!("impl target '{name}' is not a struct")).into());
-                    };
-                    for (mname, idx) in methods {
-                        let m = self.make_closure(*idx, f);
-                        let mut ms = ty.methods.borrow_mut();
-                        match ms.iter_mut().find(|(n, _)| n == mname) {
-                            Some(entry) => entry.1 = m,
-                            None => ms.push((mname.clone(), m)),
-                        }
-                    }
+                    let ty = self.load(*target, name, *pos, f)?;
+                    let ms = methods.iter().map(|(n, idx)| (n.clone(), self.make_closure(*idx, f))).collect();
+                    ops::add_methods(&ty, name, ms, *pos)?;
                 }
             }
         }
@@ -295,7 +287,8 @@ impl Interp {
         let it = self.eval(iter, f)?;
         let idx = |i: i64| index.map(|s| (s, i));
         match it {
-            Value::Range(start, end) => {
+            Value::Range(r) => {
+                let (start, end) = *r;
                 for n in start..end {
                     if !self.loop_iteration(idx(n - start), var, Value::Int(n), body, f)? {
                         break;
@@ -339,7 +332,7 @@ impl Interp {
                 for p in parts {
                     self.eval(p, f)?.write_display(&mut s);
                 }
-                Ok(Value::Str(Rc::from(s)))
+                Ok(Value::string(s))
             }
             Expr::Array(items) => {
                 let mut out = Vec::with_capacity(items.len());
@@ -382,7 +375,7 @@ impl Interp {
                 let fv = self.eval(callee, f)?;
                 if let Value::Func(clo) = &fv {
                     if names.is_some() {
-                        return Err(named_args_err(*pos).into());
+                        return Err(ops::named_args_error(*pos).into());
                     }
                     let base = self.stack.len();
                     for a in args {
@@ -396,21 +389,10 @@ impl Interp {
             }
             Expr::MethodCall { obj, name, fallback, args, pos } => {
                 let o = self.eval(obj, f)?;
-                let method = match &o {
-                    Value::Struct(inst) => inst.ty.method(name),
-                    _ => None,
-                };
-                let callee = match (method, fallback) {
+                let callee = match (ops::find_method(&o, name), fallback) {
                     (Some(m), _) => Value::Func(m),
                     (None, Some(fb)) => self.eval(fb, f)?,
-                    (None, None) => {
-                        return Err(err(
-                            ErrorKind::Name,
-                            *pos,
-                            format!("{} has no method '{name}' and no function '{name}' is defined", o.type_name()),
-                        )
-                        .into());
-                    }
+                    (None, None) => return Err(ops::no_method_error(&o, name, *pos).into()),
                 };
                 if let Value::Func(clo) = &callee {
                     let base = self.stack.len();
@@ -503,12 +485,10 @@ impl Interp {
         let argc = self.stack.len() - base;
         if argc != p.arity {
             self.stack.truncate(base);
-            let name = p.name.as_deref().map_or_else(|| "anonymous function".to_string(), |n| format!("function '{n}'"));
-            let s = if p.arity == 1 { "" } else { "s" };
-            return Err(type_err(pos, format!("{name} expects {} argument{s}, got {argc}", p.arity)).into());
+            return Err(ops::arity_error(p, argc, pos).into());
         }
         if self.depth >= MAX_DEPTH {
-            return Err(err(ErrorKind::Runtime, pos, "stack overflow").into());
+            return Err(ops::stack_overflow(pos).into());
         }
         self.depth += 1;
         self.stack.resize(base + p.n_locals, Value::Nil);
@@ -528,8 +508,14 @@ impl Interp {
 
     fn call_value(&mut self, fv: &Value, args: Vec<Value>, names: Option<&[Rc<str>]>, pos: Pos) -> R<Value> {
         match fv {
-            Value::StructType(ty) => self.construct(ty, args, names, pos),
-            _ if names.is_some() => Err(named_args_err(pos).into()),
+            Value::StructType(ty) => {
+                let mut call_default = |d: &Rc<Closure>| {
+                    let base = self.stack.len();
+                    self.invoke(d, base, pos).map_err(into_error)
+                };
+                Ok(ops::construct(ty, args, names, pos, &mut call_default)?)
+            }
+            _ if names.is_some() => Err(ops::named_args_error(pos).into()),
             Value::Func(clo) => {
                 let base = self.stack.len();
                 self.stack.extend(args);
@@ -537,50 +523,10 @@ impl Interp {
             }
             Value::Builtin(b) => {
                 builtins::check_arity(b, args.len(), pos)?;
-                Ok((b.func)(self, args, pos)?)
+                let mut args = args;
+                Ok((b.func)(self, &mut args, pos)?)
             }
-            other => Err(type_err(pos, format!("{} is not callable", other.type_name())).into()),
+            other => Err(ops::not_callable(other, pos).into()),
         }
     }
-
-    fn construct(&mut self, ty: &Rc<StructType>, args: Vec<Value>, names: Option<&[Rc<str>]>, pos: Pos) -> R<Value> {
-        let n = ty.fields.len();
-        let mut vals: Vec<Option<Value>> = vec![None; n];
-        match names {
-            None => {
-                if args.len() > n {
-                    return Err(type_err(pos, format!("{} has {n} fields, got {} arguments", ty.name, args.len())).into());
-                }
-                for (slot, v) in vals.iter_mut().zip(args) {
-                    *slot = Some(v);
-                }
-            }
-            Some(names) => {
-                for (name, v) in names.iter().zip(args) {
-                    let Some(k) = ty.field_index(name) else {
-                        return Err(type_err(pos, format!("{} has no field '{name}'", ty.name)).into());
-                    };
-                    vals[k] = Some(v);
-                }
-            }
-        }
-        let mut fields = Vec::with_capacity(n);
-        for (k, v) in vals.into_iter().enumerate() {
-            fields.push(match (v, &ty.defaults[k]) {
-                (Some(v), _) => v,
-                (None, Some(d)) => {
-                    let base = self.stack.len();
-                    self.invoke(d, base, pos)?
-                }
-                (None, None) => {
-                    return Err(type_err(pos, format!("missing field '{}' when constructing {}", ty.fields[k], ty.name)).into());
-                }
-            });
-        }
-        Ok(Value::Struct(Rc::new(Instance { ty: ty.clone(), fields: RefCell::new(fields) })))
-    }
-}
-
-fn named_args_err(pos: Pos) -> ZyxError {
-    type_err(pos, "named arguments are only allowed when constructing a struct")
 }

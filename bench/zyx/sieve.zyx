@@ -1,0 +1,27 @@
+# 埃氏筛：数组读写
+fn sieve(n) {
+    let flags = array(n, true)
+    flags[0] = false
+    flags[1] = false
+    let i = 2
+    while i * i < n {
+        if flags[i] {
+            let j = i * i
+            while j < n {
+                flags[j] = false
+                j += i
+            }
+        }
+        i += 1
+    }
+    let count = 0
+    for f in flags {
+        if f { count += 1 }
+    }
+    count
+}
+let total = 0
+for round in 0..5 {
+    total += sieve(2000000)
+}
+print(total)

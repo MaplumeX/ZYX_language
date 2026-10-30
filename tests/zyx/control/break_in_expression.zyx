@@ -1,0 +1,29 @@
+# break / continue 出现在表达式内部的块中，检查虚拟机的栈清理
+let out = []
+for i in 0..5 {
+    let v = [i, {
+        if i == 3 { break }
+        if i == 1 { continue }
+        i * 10
+    }]
+    out.push(v)
+}
+print(out)
+let n = 0
+while true {
+    n += 1
+    let s = "x{ if n > 2 { break } else { n } }"
+}
+print(n)
+fn f() {
+    for i in 0..10 {
+        let t = [1, 2, if i == 4 { return i } else { 0 }]
+    }
+    -1
+}
+print(f())
+print(match 3 { x if x > 2 => { let y = [x, x]; y }, _ => [] })
+# expect: [[0, 0], [2, 20]]
+# expect: 3
+# expect: 4
+# expect: [3, 3]

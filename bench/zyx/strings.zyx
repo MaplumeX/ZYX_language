@@ -1,0 +1,22 @@
+# 字符串：插值、拼接、分割、查找
+fn run(n) {
+    let parts = []
+    for i in 0..n {
+        parts.push("item{i}")
+    }
+    let text = join(parts, ",")
+    let back = split(text, ",")
+    let total = 0
+    let sevens = 0
+    for s in back {
+        total += len(s)
+        if s.ends_with("7") { sevens += 1 }
+    }
+    let acc = ""
+    for i in 0..20000 {
+        acc = acc + "x"
+    }
+    print(len(text), total, sevens, len(acc))
+    print(upper(text)[0..16])
+}
+run(2000000)

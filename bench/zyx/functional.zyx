@@ -1,0 +1,9 @@
+# 高阶函数：map / filter / sort / reduce 与闭包调用
+fn run(n) {
+    let xs = map(0..n, fn(i) => i * 7919 % 10007)
+    let evens = filter(xs, fn(x) => x % 2 == 0)
+    let sorted = sort(evens)
+    let total = reduce(sorted, 0, fn(acc, x) => acc + x)
+    print(len(evens), sorted[0], sorted[-1], total)
+}
+run(3000000)

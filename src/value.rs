@@ -1,4 +1,7 @@
 //! 运行时的值。数组和结构体实例是引用语义（reference.md 2.1）。
+//!
+//! `Value` 保持 16 字节（8 字节标签 + 8 字节载荷）：字符串用 `Rc<String>`（单指针）而不是
+//! `Rc<str>`（胖指针），区间放在 `Rc` 里。值的复制、移动和数组元素都因此更省内存带宽。
 
 use std::cell::RefCell;
 use std::cmp::Ordering;
@@ -14,10 +17,10 @@ pub enum Value {
     Bool(bool),
     Int(i64),
     Float(f64),
-    Str(Rc<str>),
+    Str(Rc<String>),
     Array(Rc<RefCell<Vec<Value>>>),
     /// 左闭右开区间 `start..end`；`a..=b` 存为 `a..b+1`。
-    Range(i64, i64),
+    Range(Rc<(i64, i64)>),
     Func(Rc<Closure>),
     Builtin(&'static Builtin),
     StructType(Rc<StructType>),
@@ -61,7 +64,15 @@ impl StructType {
 
 impl Value {
     pub fn str(s: &str) -> Value {
-        Value::Str(Rc::from(s))
+        Value::Str(Rc::new(s.to_string()))
+    }
+
+    pub fn string(s: String) -> Value {
+        Value::Str(Rc::new(s))
+    }
+
+    pub fn range(start: i64, end: i64) -> Value {
+        Value::Range(Rc::new((start, end)))
     }
 
     pub fn array(items: Vec<Value>) -> Value {
@@ -142,8 +153,8 @@ impl Value {
                 }
                 out.push(']');
             }
-            Value::Range(a, b) => {
-                let _ = write!(out, "{a}..{b}");
+            Value::Range(r) => {
+                let _ = write!(out, "{}..{}", r.0, r.1);
             }
             Value::Func(c) => match &c.proto.name {
                 Some(name) => {
@@ -202,7 +213,7 @@ pub fn values_equal(a: &Value, b: &Value) -> bool {
             let (x, y) = (x.borrow(), y.borrow());
             x.len() == y.len() && x.iter().zip(y.iter()).all(|(a, b)| values_equal(a, b))
         }
-        (Value::Range(a1, b1), Value::Range(a2, b2)) => a1 == a2 && b1 == b2,
+        (Value::Range(x), Value::Range(y)) => x == y,
         (Value::Func(x), Value::Func(y)) => Rc::ptr_eq(x, y),
         (Value::Builtin(x), Value::Builtin(y)) => std::ptr::eq(*x, *y),
         (Value::StructType(x), Value::StructType(y)) => Rc::ptr_eq(x, y),
@@ -228,5 +239,13 @@ pub fn compare(a: &Value, b: &Value) -> Option<Ordering> {
         (Value::Float(x), Value::Int(y)) => x.partial_cmp(&(*y as f64)),
         (Value::Str(x), Value::Str(y)) => Some(x.cmp(y)),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn value_size() {
+        assert_eq!(std::mem::size_of::<super::Value>(), 16);
     }
 }

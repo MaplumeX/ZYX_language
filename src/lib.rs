@@ -2,6 +2,7 @@
 
 pub mod ast;
 pub mod builtins;
+pub mod bytecode;
 pub mod error;
 pub mod interp;
 pub mod ir;
@@ -11,3 +12,4 @@ pub mod parser;
 pub mod resolver;
 pub mod token;
 pub mod value;
+pub mod vm;

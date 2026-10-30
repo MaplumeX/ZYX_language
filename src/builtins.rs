@@ -1,5 +1,8 @@
 //! 内置函数（reference.md 第 8 节）。通过 `Runtime` 接口与执行后端交互，两个后端共用。
 
+// 所有内置函数共用同一个函数指针类型，参数统一为 `&mut Vec<Value>`（部分函数会从中取走值）。
+#![allow(clippy::ptr_arg)]
+
 use std::cell::RefCell;
 use std::io::{BufRead, BufWriter, Stdout, Write};
 use std::rc::Rc;
@@ -46,7 +49,8 @@ impl Io {
     }
 }
 
-type BuiltinFn = fn(&mut dyn Runtime, Vec<Value>, Pos) -> Result<Value>;
+/// 参数通过可复用的缓冲区传入，内置函数可以取走其中的值（调用方随后会清空它）。
+type BuiltinFn = fn(&mut dyn Runtime, &mut Vec<Value>, Pos) -> Result<Value>;
 
 pub struct Builtin {
     pub name: &'static str,
@@ -143,7 +147,7 @@ fn int_arg(v: &Value, f: &str, pos: Pos) -> Result<i64> {
     }
 }
 
-fn str_arg<'a>(v: &'a Value, f: &str, pos: Pos) -> Result<&'a Rc<str>> {
+fn str_arg<'a>(v: &'a Value, f: &str, pos: Pos) -> Result<&'a Rc<String>> {
     match v {
         Value::Str(s) => Ok(s),
         other => Err(type_err(pos, format!("{f}() expects str, got {}", other.type_name()))),
@@ -169,7 +173,7 @@ fn num_arg(v: &Value, f: &str, pos: Pos) -> Result<f64> {
 fn items(v: &Value, f: &str, pos: Pos) -> Result<Vec<Value>> {
     match v {
         Value::Array(a) => Ok(a.borrow().clone()),
-        Value::Range(s, e) => Ok((*s..*e).map(Value::Int).collect()),
+        Value::Range(r) => Ok((r.0..r.1).map(Value::Int).collect()),
         Value::Str(s) => Ok(s.chars().map(|c| Value::str(c.encode_utf8(&mut [0; 4]))).collect()),
         other => Err(type_err(pos, format!("{f}() expects array, range or str, got {}", other.type_name()))),
     }
@@ -196,19 +200,19 @@ fn joined(args: &[Value]) -> String {
     s
 }
 
-fn print(rt: &mut dyn Runtime, args: Vec<Value>, _: Pos) -> Result<Value> {
-    let mut s = joined(&args);
+fn print(rt: &mut dyn Runtime, args: &mut Vec<Value>, _: Pos) -> Result<Value> {
+    let mut s = joined(args);
     s.push('\n');
     let _ = rt.io().out.write_all(s.as_bytes());
     Ok(Value::Nil)
 }
 
-fn write(rt: &mut dyn Runtime, args: Vec<Value>, _: Pos) -> Result<Value> {
-    let _ = rt.io().out.write_all(joined(&args).as_bytes());
+fn write(rt: &mut dyn Runtime, args: &mut Vec<Value>, _: Pos) -> Result<Value> {
+    let _ = rt.io().out.write_all(joined(args).as_bytes());
     Ok(Value::Nil)
 }
 
-fn input(rt: &mut dyn Runtime, args: Vec<Value>, _: Pos) -> Result<Value> {
+fn input(rt: &mut dyn Runtime, args: &mut Vec<Value>, _: Pos) -> Result<Value> {
     let io = rt.io();
     if let Some(p) = args.first() {
         let _ = io.out.write_all(p.to_display().as_bytes());
@@ -226,7 +230,7 @@ fn input(rt: &mut dyn Runtime, args: Vec<Value>, _: Pos) -> Result<Value> {
 
 // ---------- 类型与转换 ----------
 
-fn type_of(_: &mut dyn Runtime, args: Vec<Value>, _: Pos) -> Result<Value> {
+fn type_of(_: &mut dyn Runtime, args: &mut Vec<Value>, _: Pos) -> Result<Value> {
     Ok(Value::str(&args[0].type_name()))
 }
 
@@ -234,7 +238,7 @@ fn parse_int_str(s: &str) -> Option<i64> {
     s.trim().parse::<i64>().ok()
 }
 
-fn to_int(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn to_int(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Int(match &args[0] {
         Value::Int(n) => *n,
         Value::Float(x) => float_to_int(*x, "int", pos)?,
@@ -245,7 +249,7 @@ fn to_int(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     }))
 }
 
-fn to_float(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn to_float(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Float(match &args[0] {
         Value::Int(n) => *n as f64,
         Value::Float(x) => *x,
@@ -258,21 +262,21 @@ fn to_float(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     }))
 }
 
-fn to_str(_: &mut dyn Runtime, args: Vec<Value>, _: Pos) -> Result<Value> {
+fn to_str(_: &mut dyn Runtime, args: &mut Vec<Value>, _: Pos) -> Result<Value> {
     Ok(match &args[0] {
         Value::Str(s) => Value::Str(s.clone()),
         other => Value::str(&other.to_display()),
     })
 }
 
-fn parse_int(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn parse_int(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let s = str_arg(&args[0], "parse_int", pos)?;
     Ok(parse_int_str(s).map(Value::Int).unwrap_or(Value::Nil))
 }
 
 // ---------- 数组与通用 ----------
 
-fn len(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn len(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let n = match &args[0] {
         Value::Array(a) => a.borrow().len() as i64,
         Value::Str(s) => {
@@ -282,7 +286,7 @@ fn len(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
                 s.chars().count() as i64
             }
         }
-        Value::Range(s, e) => (e - s).max(0),
+        Value::Range(r) => (r.1 - r.0).max(0),
         other => return Err(type_err(pos, format!("len() of {}", other.type_name()))),
     };
     Ok(Value::Int(n))
@@ -296,7 +300,7 @@ fn shallow_copy(v: &Value) -> Value {
     }
 }
 
-fn make_array(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn make_array(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let n = int_arg(&args[0], "array", pos)?;
     if n < 0 {
         return Err(err(ErrorKind::Value, pos, "array() length must not be negative"));
@@ -305,24 +309,24 @@ fn make_array(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> 
     Ok(Value::array(items))
 }
 
-fn copy(_: &mut dyn Runtime, args: Vec<Value>, _: Pos) -> Result<Value> {
+fn copy(_: &mut dyn Runtime, args: &mut Vec<Value>, _: Pos) -> Result<Value> {
     Ok(shallow_copy(&args[0]))
 }
 
-fn push(_: &mut dyn Runtime, mut args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn push(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let x = args.pop().expect("arity");
     array_arg(&args[0], "push", pos)?.borrow_mut().push(x);
     Ok(Value::Nil)
 }
 
-fn pop(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn pop(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     array_arg(&args[0], "pop", pos)?
         .borrow_mut()
         .pop()
         .ok_or_else(|| err(ErrorKind::Index, pos, "pop from empty array"))
 }
 
-fn insert(_: &mut dyn Runtime, mut args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn insert(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let x = args.pop().expect("arity");
     let i = int_arg(&args[1], "insert", pos)?;
     let mut a = array_arg(&args[0], "insert", pos)?.borrow_mut();
@@ -335,7 +339,7 @@ fn insert(_: &mut dyn Runtime, mut args: Vec<Value>, pos: Pos) -> Result<Value> 
     Ok(Value::Nil)
 }
 
-fn remove(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn remove(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let i = int_arg(&args[1], "remove", pos)?;
     let mut a = array_arg(&args[0], "remove", pos)?.borrow_mut();
     let len = a.len();
@@ -349,16 +353,16 @@ fn char_index(hay: &str, byte_idx: usize) -> i64 {
     hay[..byte_idx].chars().count() as i64
 }
 
-fn contains(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn contains(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Bool(match &args[0] {
         Value::Array(a) => a.borrow().iter().any(|v| values_equal(v, &args[1])),
         Value::Str(s) => s.contains(&**str_arg(&args[1], "contains", pos)?),
-        Value::Range(s, e) => matches!(args[1], Value::Int(n) if n >= *s && n < *e),
+        Value::Range(r) => matches!(args[1], Value::Int(n) if n >= r.0 && n < r.1),
         other => return Err(type_err(pos, format!("contains() expects array, str or range, got {}", other.type_name()))),
     }))
 }
 
-fn index_of(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn index_of(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Int(match &args[0] {
         Value::Array(a) => a.borrow().iter().position(|v| values_equal(v, &args[1])).map_or(-1, |i| i as i64),
         Value::Str(s) => s.find(&**str_arg(&args[1], "index_of", pos)?).map_or(-1, |b| char_index(s, b)),
@@ -366,10 +370,10 @@ fn index_of(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     }))
 }
 
-fn reverse(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn reverse(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     match &args[0] {
         Value::Array(a) => Ok(Value::array(a.borrow().iter().rev().cloned().collect())),
-        Value::Str(s) => Ok(Value::Str(Rc::from(s.chars().rev().collect::<String>()))),
+        Value::Str(s) => Ok(Value::string(s.chars().rev().collect())),
         other => Err(type_err(pos, format!("reverse() expects array or str, got {}", other.type_name()))),
     }
 }
@@ -389,7 +393,7 @@ fn sort_values(pairs: &mut [(Value, Value)], pos: Pos) -> Result<()> {
     }
 }
 
-fn sort(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn sort(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let xs = items(&args[0], "sort", pos)?;
     let mut pairs = Vec::with_capacity(xs.len());
     for x in xs {
@@ -403,7 +407,7 @@ fn sort(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::array(pairs.into_iter().map(|(_, v)| v).collect()))
 }
 
-fn map(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn map(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let xs = items(&args[0], "map", pos)?;
     let mut out = Vec::with_capacity(xs.len());
     for x in xs {
@@ -412,7 +416,7 @@ fn map(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::array(out))
 }
 
-fn filter(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn filter(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let xs = items(&args[0], "filter", pos)?;
     let mut out = Vec::new();
     for x in xs {
@@ -424,7 +428,7 @@ fn filter(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::array(out))
 }
 
-fn reduce(rt: &mut dyn Runtime, mut args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn reduce(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let f = args.pop().expect("arity");
     let mut acc = args.pop().expect("arity");
     for x in items(&args[0], "reduce", pos)? {
@@ -433,7 +437,7 @@ fn reduce(rt: &mut dyn Runtime, mut args: Vec<Value>, pos: Pos) -> Result<Value>
     Ok(acc)
 }
 
-fn sum(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn sum(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let mut acc = Value::Int(0);
     for x in items(&args[0], "sum", pos)? {
         if !matches!(x, Value::Int(_) | Value::Float(_)) {
@@ -463,15 +467,15 @@ fn extreme(args: Vec<Value>, f: &str, want: std::cmp::Ordering, pos: Pos) -> Res
     Ok(best)
 }
 
-fn min(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
-    extreme(args, "min", std::cmp::Ordering::Less, pos)
+fn min(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    extreme(std::mem::take(args), "min", std::cmp::Ordering::Less, pos)
 }
 
-fn max(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
-    extreme(args, "max", std::cmp::Ordering::Greater, pos)
+fn max(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    extreme(std::mem::take(args), "max", std::cmp::Ordering::Greater, pos)
 }
 
-fn join(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn join(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let sep = str_arg(&args[1], "join", pos)?;
     let mut s = String::new();
     for (i, x) in items(&args[0], "join", pos)?.iter().enumerate() {
@@ -480,12 +484,12 @@ fn join(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
         }
         x.write_display(&mut s);
     }
-    Ok(Value::Str(Rc::from(s)))
+    Ok(Value::string(s))
 }
 
 // ---------- 字符串 ----------
 
-fn split(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn split(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let s = str_arg(&args[0], "split", pos)?;
     let sep = str_arg(&args[1], "split", pos)?;
     let parts = if sep.is_empty() {
@@ -496,19 +500,19 @@ fn split(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::array(parts))
 }
 
-fn trim(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn trim(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::str(str_arg(&args[0], "trim", pos)?.trim()))
 }
 
-fn upper(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn upper(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::str(&str_arg(&args[0], "upper", pos)?.to_uppercase()))
 }
 
-fn lower(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn lower(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::str(&str_arg(&args[0], "lower", pos)?.to_lowercase()))
 }
 
-fn replace(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn replace(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let s = str_arg(&args[0], "replace", pos)?;
     let from = str_arg(&args[1], "replace", pos)?;
     let to = str_arg(&args[2], "replace", pos)?;
@@ -518,11 +522,11 @@ fn replace(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::str(&s.replace(&**from, to)))
 }
 
-fn starts_with(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn starts_with(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Bool(str_arg(&args[0], "starts_with", pos)?.starts_with(&**str_arg(&args[1], "starts_with", pos)?)))
 }
 
-fn ends_with(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn ends_with(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Bool(str_arg(&args[0], "ends_with", pos)?.ends_with(&**str_arg(&args[1], "ends_with", pos)?)))
 }
 
@@ -548,15 +552,15 @@ fn pad(args: &[Value], f: &str, left: bool, pos: Pos) -> Result<Value> {
     Ok(Value::str(&if left { padding + &s } else { s + &padding }))
 }
 
-fn pad_left(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
-    pad(&args, "pad_left", true, pos)
+fn pad_left(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    pad(args, "pad_left", true, pos)
 }
 
-fn pad_right(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
-    pad(&args, "pad_right", false, pos)
+fn pad_right(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    pad(args, "pad_right", false, pos)
 }
 
-fn ord(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn ord(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let s = str_arg(&args[0], "ord", pos)?;
     let mut chars = s.chars();
     match (chars.next(), chars.next()) {
@@ -565,7 +569,7 @@ fn ord(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     }
 }
 
-fn chr(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn chr(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let n = int_arg(&args[0], "chr", pos)?;
     u32::try_from(n)
         .ok()
@@ -576,7 +580,7 @@ fn chr(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
 
 // ---------- 数学 ----------
 
-fn abs(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn abs(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     match &args[0] {
         Value::Int(n) => n.checked_abs().map(Value::Int).ok_or_else(|| err(ErrorKind::Runtime, pos, "integer overflow")),
         Value::Float(x) => Ok(Value::Float(x.abs())),
@@ -584,7 +588,7 @@ fn abs(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     }
 }
 
-fn sqrt(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn sqrt(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let x = num_arg(&args[0], "sqrt", pos)?;
     if x < 0.0 {
         return Err(err(ErrorKind::Value, pos, "sqrt() of a negative number"));
@@ -600,21 +604,21 @@ fn rounding(args: &[Value], f: &str, op: fn(f64) -> f64, pos: Pos) -> Result<Val
     }
 }
 
-fn floor(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
-    rounding(&args, "floor", f64::floor, pos)
+fn floor(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    rounding(args, "floor", f64::floor, pos)
 }
 
-fn ceil(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
-    rounding(&args, "ceil", f64::ceil, pos)
+fn ceil(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    rounding(args, "ceil", f64::ceil, pos)
 }
 
-fn round(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
-    rounding(&args, "round", f64::round, pos)
+fn round(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    rounding(args, "round", f64::round, pos)
 }
 
 // ---------- 其他 ----------
 
-fn random(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn random(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let a = int_arg(&args[0], "random", pos)?;
     let b = int_arg(&args[1], "random", pos)?;
     if a > b {
@@ -625,12 +629,12 @@ fn random(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Int((a as i128 + r) as i64))
 }
 
-fn seed(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn seed(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     rt.io().rng = int_arg(&args[0], "seed", pos)? as u64;
     Ok(Value::Nil)
 }
 
-fn time(_: &mut dyn Runtime, _: Vec<Value>, _: Pos) -> Result<Value> {
+fn time(_: &mut dyn Runtime, _: &mut Vec<Value>, _: Pos) -> Result<Value> {
     let t = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs_f64())
@@ -638,7 +642,7 @@ fn time(_: &mut dyn Runtime, _: Vec<Value>, _: Pos) -> Result<Value> {
     Ok(Value::Float(t))
 }
 
-fn assert(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn assert(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     if ops::expect_bool(&args[0], pos, "assert() condition")? {
         return Ok(Value::Nil);
     }
@@ -646,18 +650,18 @@ fn assert(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
     Err(err(ErrorKind::Assertion, pos, msg))
 }
 
-fn assert_eq(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn assert_eq(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     if values_equal(&args[0], &args[1]) {
         return Ok(Value::Nil);
     }
     Err(err(ErrorKind::Assertion, pos, format!("{} != {}", args[0].repr(), args[1].repr())))
 }
 
-fn error(_: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn error(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Err(err(ErrorKind::Runtime, pos, args[0].to_display()))
 }
 
-fn exit(rt: &mut dyn Runtime, args: Vec<Value>, pos: Pos) -> Result<Value> {
+fn exit(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let code = match args.first() {
         Some(v) => int_arg(v, "exit", pos)?,
         None => 0,

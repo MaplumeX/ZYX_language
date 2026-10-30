@@ -48,6 +48,8 @@ pub enum UpSrc {
 }
 
 pub struct FnProto {
+    /// 在 `Program::protos` 中的下标；脚本顶层为 `protos.len()`。字节码后端据此找到对应的代码块。
+    pub id: usize,
     pub name: Option<Rc<str>>,
     pub arity: usize,
     /// 参数占用局部槽位 `0..arity`。
@@ -125,6 +127,7 @@ pub struct Arm {
     pub body: Expr,
 }
 
+#[derive(Clone)]
 pub enum Pattern {
     Wildcard,
     Bind(Slot),

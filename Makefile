@@ -1,4 +1,4 @@
-BACKENDS ?= tree
+BACKENDS ?= tree vm
 BACKEND_FLAGS := $(foreach b,$(BACKENDS),--backend $(b))
 
 .PHONY: build test unit blackbox clean

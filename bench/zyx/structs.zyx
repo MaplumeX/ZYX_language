@@ -1,0 +1,25 @@
+# 结构体：字段读写
+struct Particle { x, y, vx, vy }
+
+fn run(n, steps) {
+    let ps = []
+    for i in 0..n {
+        ps.push(Particle(i, i * 2 % 1000, i % 7 - 3, i % 5 - 2))
+    }
+    for s in 0..steps {
+        for p in ps {
+            p.x += p.vx
+            p.y += p.vy
+            if p.x < 0 or p.x > 1000 { p.vx = -p.vx }
+            if p.y < 0 or p.y > 1000 { p.vy = -p.vy }
+        }
+    }
+    let sx = 0
+    let sy = 0
+    for p in ps {
+        sx += p.x
+        sy += p.y
+    }
+    print(sx, sy)
+}
+run(1000, 5000)

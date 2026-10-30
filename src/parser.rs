@@ -630,7 +630,10 @@ impl Parser {
             match part {
                 StrPart::Lit(s) => out.push(InterpPart::Lit(s)),
                 StrPart::Expr(toks) => {
+                    // 插值内部与外层处于同一个循环 / 函数中
                     let mut sub = Parser::new(toks);
+                    sub.loop_depth = self.loop_depth;
+                    sub.fn_depth = self.fn_depth;
                     let e = sub.expr()?;
                     if !sub.at(&Tok::Eof) {
                         return Err(sub.err_here(format!("unexpected {} in interpolation", sub.peek().describe())));
@@ -874,6 +877,7 @@ mod tests {
     fn interpolation() {
         assert_eq!(ast("\"a{x + 1}b\""), "(interp \"a\" (+ x 1) \"b\")");
         assert_eq!(ast("\"{p.name}\""), "(interp (field p name))");
+        assert_eq!(ast("while true { \"{ if a { break } }\" }"), "(while true (block (interp (if a (block (break))))))");
     }
 
     #[test]

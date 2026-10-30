@@ -1,10 +1,12 @@
 //! 运算符、下标与字段访问的语义（reference.md 第 3 节），两个执行后端共用。
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::ast::{BinOp, Pos, UnOp};
 use crate::error::{ErrorKind, Result, ZyxError};
-use crate::value::{Value, compare, values_equal};
+use crate::ir::FnProto;
+use crate::value::{Closure, Instance, StructType, Value, compare, values_equal};
 
 pub fn err(kind: ErrorKind, pos: Pos, msg: impl Into<String>) -> ZyxError {
     ZyxError::new(kind, pos.line, pos.col, msg)
@@ -84,9 +86,9 @@ pub fn binary(op: BinOp, a: &Value, b: &Value, pos: Pos) -> Result<Value> {
             let mut s = String::with_capacity(x.len() + y.len());
             s.push_str(x);
             s.push_str(y);
-            Value::Str(Rc::from(s))
+            Value::string(s)
         }
-        (BinOp::Mul, Str(s), Int(n)) => Value::Str(Rc::from(s.repeat((*n).max(0) as usize))),
+        (BinOp::Mul, Str(s), Int(n)) => Value::string(s.repeat((*n).max(0) as usize)),
         (BinOp::Eq, _, _) => Value::Bool(values_equal(a, b)),
         (BinOp::Ne, _, _) => Value::Bool(!values_equal(a, b)),
         (BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge, _, _) => {
@@ -134,7 +136,7 @@ pub fn make_range(a: &Value, b: &Value, inclusive: bool, pos: Pos) -> Result<Val
         return Err(type_err(pos, format!("range bounds must be int, got {} and {}", a.type_name(), b.type_name())));
     };
     let end = if inclusive { end.checked_add(1).ok_or_else(|| overflow(pos))? } else { *end };
-    Ok(Value::Range(*start, end))
+    Ok(Value::range(*start, end))
 }
 
 /// 负数下标从末尾倒数。
@@ -163,9 +165,9 @@ pub fn index_get(c: &Value, i: &Value, pos: Pos) -> Result<Value> {
                 None => Err(index_err(*n, "array", a.len(), pos)),
             }
         }
-        (Value::Array(a), Value::Range(s, e)) => {
+        (Value::Array(a), Value::Range(r)) => {
             let a = a.borrow();
-            let (s, e) = clamp_slice(*s, *e, a.len());
+            let (s, e) = clamp_slice(r.0, r.1, a.len());
             Ok(Value::array(a[s..e].to_vec()))
         }
         (Value::Str(s), Value::Int(n)) => {
@@ -181,14 +183,14 @@ pub fn index_get(c: &Value, i: &Value, pos: Pos) -> Result<Value> {
                 None => Err(index_err(*n, "string", len, pos)),
             }
         }
-        (Value::Str(s), Value::Range(a, b)) => {
+        (Value::Str(s), Value::Range(r)) => {
             if s.is_ascii() {
-                let (a, b) = clamp_slice(*a, *b, s.len());
+                let (a, b) = clamp_slice(r.0, r.1, s.len());
                 return Ok(Value::str(&s[a..b]));
             }
             let len = s.chars().count();
-            let (a, b) = clamp_slice(*a, *b, len);
-            Ok(Value::Str(Rc::from(s.chars().skip(a).take(b - a).collect::<String>())))
+            let (a, b) = clamp_slice(r.0, r.1, len);
+            Ok(Value::string(s.chars().skip(a).take(b - a).collect()))
         }
         (Value::Array(_) | Value::Str(_), other) => {
             Err(type_err(pos, format!("index must be int or range, got {}", other.type_name())))
@@ -237,4 +239,92 @@ pub fn field_set(obj: &Value, name: &str, v: Value, pos: Pos) -> Result<()> {
         },
         other => Err(type_err(pos, format!("{} has no field '{name}'", other.type_name()))),
     }
+}
+
+// ---------- 调用相关（两个后端共用） ----------
+
+pub fn arity_error(proto: &FnProto, argc: usize, pos: Pos) -> ZyxError {
+    let name = proto.name.as_deref().map_or_else(|| "anonymous function".to_string(), |n| format!("function '{n}'"));
+    let s = if proto.arity == 1 { "" } else { "s" };
+    type_err(pos, format!("{name} expects {} argument{s}, got {argc}", proto.arity))
+}
+
+pub fn named_args_error(pos: Pos) -> ZyxError {
+    type_err(pos, "named arguments are only allowed when constructing a struct")
+}
+
+pub fn not_callable(v: &Value, pos: Pos) -> ZyxError {
+    type_err(pos, format!("{} is not callable", v.type_name()))
+}
+
+pub fn no_method_error(obj: &Value, name: &str, pos: Pos) -> ZyxError {
+    err(ErrorKind::Name, pos, format!("{} has no method '{name}' and no function '{name}' is defined", obj.type_name()))
+}
+
+pub fn stack_overflow(pos: Pos) -> ZyxError {
+    err(ErrorKind::Runtime, pos, "stack overflow")
+}
+
+/// 统一调用语法的第一步：对象是结构体且定义了该方法时返回方法。
+pub fn find_method(obj: &Value, name: &str) -> Option<Rc<Closure>> {
+    match obj {
+        Value::Struct(inst) => inst.ty.method(name),
+        _ => None,
+    }
+}
+
+/// 执行 `impl`：把方法挂到结构体类型上，同名方法后定义的覆盖先定义的。
+pub fn add_methods(target: &Value, name: &str, methods: Vec<(Rc<str>, Rc<Closure>)>, pos: Pos) -> Result<()> {
+    let Value::StructType(ty) = target else {
+        return Err(type_err(pos, format!("impl target '{name}' is not a struct")));
+    };
+    let mut ms = ty.methods.borrow_mut();
+    for (mname, m) in methods {
+        match ms.iter_mut().find(|(n, _)| *n == mname) {
+            Some(entry) => entry.1 = m,
+            None => ms.push((mname, m)),
+        }
+    }
+    Ok(())
+}
+
+/// 构造结构体实例。`call_default` 用于求值字段默认值（无参闭包）。
+pub fn construct(
+    ty: &Rc<StructType>,
+    args: Vec<Value>,
+    names: Option<&[Rc<str>]>,
+    pos: Pos,
+    call_default: &mut dyn FnMut(&Rc<Closure>) -> Result<Value>,
+) -> Result<Value> {
+    let n = ty.fields.len();
+    let mut vals: Vec<Option<Value>> = vec![None; n];
+    match names {
+        None => {
+            if args.len() > n {
+                return Err(type_err(pos, format!("{} has {n} fields, got {} arguments", ty.name, args.len())));
+            }
+            for (slot, v) in vals.iter_mut().zip(args) {
+                *slot = Some(v);
+            }
+        }
+        Some(names) => {
+            for (name, v) in names.iter().zip(args) {
+                let Some(k) = ty.field_index(name) else {
+                    return Err(type_err(pos, format!("{} has no field '{name}'", ty.name)));
+                };
+                vals[k] = Some(v);
+            }
+        }
+    }
+    let mut fields = Vec::with_capacity(n);
+    for (k, v) in vals.into_iter().enumerate() {
+        fields.push(match (v, &ty.defaults[k]) {
+            (Some(v), _) => v,
+            (None, Some(d)) => call_default(d)?,
+            (None, None) => {
+                return Err(type_err(pos, format!("missing field '{}' when constructing {}", ty.fields[k], ty.name)));
+            }
+        });
+    }
+    Ok(Value::Struct(Rc::new(Instance { ty: ty.clone(), fields: RefCell::new(fields) })))
 }

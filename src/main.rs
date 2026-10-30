@@ -1,9 +1,10 @@
-//! 命令行入口：`zyx [--backend tree|vm] [--ast] <file.zyx>`
+//! 命令行入口：`zyx [--backend tree|vm] [--ast | --dis] <file.zyx>`
 
 use std::process::exit;
 
 use zyx::ast::sexpr_program;
 use zyx::interp::Interp;
+use zyx::vm::Vm;
 use zyx::{parser, resolver};
 
 /// 退出码见 reference.md 9.3。
@@ -11,10 +12,11 @@ const EXIT_USAGE: i32 = 64;
 const EXIT_COMPILE: i32 = 65;
 const EXIT_RUNTIME: i32 = 70;
 
-/// 树遍历后端每层 ZYX 调用会占用多层 Rust 栈帧，在大栈线程中运行以支撑 10000 层调用深度。
+/// 树遍历后端每层 ZYX 调用会占用多层 Rust 栈帧（虚拟机后端在内置函数回调时也会），
+/// 在大栈线程中运行以支撑 10000 层调用深度。
 const STACK_SIZE: usize = 1 << 30;
 
-const USAGE: &str = "usage: zyx [--backend tree|vm] [--ast] <file.zyx>";
+const USAGE: &str = "usage: zyx [--backend tree|vm] [--ast | --dis] <file.zyx>";
 
 fn main() {
     let worker = std::thread::Builder::new().stack_size(STACK_SIZE).spawn(run_cli);
@@ -28,6 +30,7 @@ fn main() {
 fn run_cli() -> i32 {
     let mut backend = String::from("tree");
     let mut dump_ast = false;
+    let mut dump_bytecode = false;
     let mut path = None;
 
     let mut args = std::env::args().skip(1);
@@ -38,6 +41,7 @@ fn run_cli() -> i32 {
                 _ => usage_error("--backend expects 'tree' or 'vm'"),
             },
             "--ast" => dump_ast = true,
+            "--dis" => dump_bytecode = true,
             "-h" | "--help" => {
                 println!("{USAGE}");
                 return 0;
@@ -78,16 +82,25 @@ fn run_cli() -> i32 {
         }
     };
 
-    if backend == "vm" {
-        eprintln!("zyx: the 'vm' backend is not implemented yet");
-        exit(EXIT_RUNTIME);
+    if dump_bytecode {
+        print!("{}", zyx::bytecode::disassemble(&ir, &zyx::bytecode::compile(&ir)));
+        return 0;
     }
 
-    let mut interp = Interp::new(&ir);
-    match interp.run(&ir) {
+    let result = if backend == "vm" {
+        let mut vm = Vm::new(&ir);
+        let r = vm.run(&ir);
+        vm.flush();
+        r
+    } else {
+        let mut interp = Interp::new(&ir);
+        let r = interp.run(&ir);
+        interp.flush();
+        r
+    };
+    match result {
         Ok(()) => 0,
         Err(e) => {
-            interp.flush();
             eprintln!("{e}");
             EXIT_RUNTIME
         }

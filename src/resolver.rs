@@ -23,6 +23,7 @@ pub fn resolve(prog: &ast::Program) -> Result<Program> {
     let (body, _) = r.block(prog, &[])?;
     let ctx = r.fns.pop().expect("script context");
     let main = Rc::new(FnProto {
+        id: r.protos.len(),
         name: None,
         arity: 0,
         n_locals: ctx.max_locals as usize,
@@ -142,7 +143,8 @@ impl Resolver {
         let pending = std::mem::take(&mut self.fns[k].scopes[si].pending);
         for p in pending {
             let saved = self.fns[k].limit.replace((si, p.visible));
-            let proto = self.function(&p.decl)?;
+            let mut proto = self.function(&p.decl)?;
+            proto.id = p.idx as usize;
             self.fns[k].limit = saved;
             self.protos[p.idx as usize] = Some(Rc::new(proto));
         }
@@ -247,6 +249,7 @@ impl Resolver {
         self.pop_scope()?;
         let ctx = self.fns.pop().expect("function context");
         Ok(FnProto {
+            id: 0,
             name: decl.name.as_deref().map(|n| self.intern(n)),
             arity: decl.params.len(),
             n_locals: ctx.max_locals as usize,

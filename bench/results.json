@@ -1,0 +1,48 @@
+{
+  "environment": {
+    "date": "2026-10-31",
+    "cpu": "Intel(R) Core(TM) i9-14900HX",
+    "os": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)"
+  },
+  "runs": 3,
+  "results": [
+    {
+      "case": "fib",
+      "python": 0.5596361759962747,
+      "vm": 0.8967397449960117,
+      "output_matches": true
+    },
+    {
+      "case": "functional",
+      "python": 0.474297218999709,
+      "vm": 0.47329480500047794,
+      "output_matches": true
+    },
+    {
+      "case": "loop",
+      "python": 0.9516377839972847,
+      "vm": 1.0794119860001956,
+      "output_matches": true
+    },
+    {
+      "case": "sieve",
+      "python": 0.4459026340045966,
+      "vm": 1.313133112002106,
+      "output_matches": true
+    },
+    {
+      "case": "strings",
+      "python": 0.35213416099577444,
+      "vm": 0.6338300649949815,
+      "output_matches": true
+    },
+    {
+      "case": "structs",
+      "python": 0.3192108340008417,
+      "vm": 0.4768966379997437,
+      "output_matches": true
+    }
+  ]
+}
