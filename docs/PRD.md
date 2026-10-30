@@ -1,6 +1,6 @@
 # ZYX 语言项目 PRD
 
-> 版本：v0.2（关键决策已确认） · 更新日期：2026-10-30 · 作者：Maplume
+> 版本：v0.3（补充作业提交物对照） · 更新日期：2026-10-30 · 作者：Maplume
 
 ## 1. 背景与目标
 
@@ -14,7 +14,19 @@
 | 4 | Agent 开发指南 | 编程 Agent 仅凭文档即可正确编写 ZYX 代码 |
 | 5 | 应用程序 | 在 Agent 辅助下用 ZYX 实现一个功能完整、不少于 200 行的程序 |
 
-## 2. 关键决策
+## 2. 作业提交物对照
+
+| 提交物 | 对应产出 |
+|---|---|
+| 1. 语法规则文档 | `docs/reference.md` |
+| 2. 解释器源程序 | `src/`（含 `Cargo.toml`、`Makefile`） |
+| 3. 完整黑盒测试集 | `tests/zyx/` + `tests/run_tests.py`，`make test` 一键运行 |
+| 4. 性能测试报告 | `docs/performance-report.md`（原始数据在 `bench/results.md`） |
+| 5. 开发指南文档 | `docs/guide.md`（面向人） |
+| 5. 给 AI 使用的文档 | `.claude/skills/zyx/SKILL.md`（面向编程 Agent） |
+| 题目第 5 项：应用程序 | `examples/app/2048.zyx`（提交清单未列出，仍随项目提交） |
+
+## 2a. 关键决策
 
 架构类决策的背景与理由记录在 [`docs/adr/`](adr/)。
 
@@ -26,7 +38,7 @@
 | 中文关键字别名 | 每个关键字都有中文别名，可与英文混用；标识符也支持中文 | 已确认 |
 | 应用程序选题 | 终端 2048 | 已确认 |
 | 截止时间 | 不设时间约束，字节码 VM 作为正式里程碑 | 已确认 |
-| 书面报告 | 暂不确定；开发中同步留存设计记录、Agent 对话、性能数据，以备需要 | 待定 |
+| 书面报告 | 提交清单只要求性能测试报告，不另写总结报告；开发中仍留存 Agent 对话等素材 | 已确认 |
 
 ## 3. 需求一：ZYX 语言设计
 
@@ -79,14 +91,20 @@
 | 结构体字段频繁读写 | 结构体访问 |
 
 - 目录 `bench/` 下 ZYX 与 Python 版本一一对应，功能和输出完全一致
-- 每个用例运行 5 次取中位数，输出对比表（可附图）到 `bench/results.md`
-- 报告对比树遍历版、字节码 VM 版与 CPython，并分析差异原因
+- 每个用例运行 5 次取中位数，原始数据写入 `bench/results.md`
+- 性能测试报告 `docs/performance-report.md` 包含：测试环境、用例说明、对比表与图、树遍历版 / 字节码 VM 版 / CPython 三方对比、差异原因分析、优化过程记录
 - 一键运行：`make bench`
 
-## 7. 需求四：Agent 开发指南
+## 7. 需求四：开发指南与 AI 文档
 
-- 位置：`.claude/skills/zyx/SKILL.md`（带 frontmatter），另附 `docs/reference.md` 完整语言参考
-- 内容：语法速查表、内置函数签名、与 Python/JS 的差异和易错点、运行与测试方法、完整示例程序
+提交物要求两份文档，分别面向人和 AI：
+
+| 文档 | 读者 | 内容 |
+|---|---|---|
+| `docs/guide.md` 开发指南 | 人 | 构建与安装、第一个程序、按主题的循序渐进教程、调试与报错解读、如何写和运行测试、项目结构 |
+| `.claude/skills/zyx/SKILL.md` | 编程 Agent | 带 frontmatter；语法速查表、内置函数签名、与 Python/JS 的差异和易错点（严格布尔条件居首）、运行与测试命令、完整示例程序 |
+
+两者都引用 `docs/reference.md` 作为完整规格。
 - **验证方法**：让一个只读过该文档的全新 Agent 编写 3 到 5 个小程序，统计出错点并回补文档，记录迭代过程
 
 ## 8. 需求五：应用程序
@@ -115,8 +133,12 @@ ZYX_language/
 │   └── results.md
 ├── docs/
 │   ├── PRD.md
-│   └── reference.md
-├── .claude/skills/zyx/SKILL.md
+│   ├── reference.md              # 提交物 1：语法规则文档
+│   ├── guide.md                  # 提交物 5：开发指南
+│   ├── performance-report.md     # 提交物 4：性能测试报告
+│   ├── adr/                      # 架构决策记录
+│   └── notes/                    # Agent 协作素材
+├── .claude/skills/zyx/SKILL.md   # 提交物 5：给 AI 使用的文档
 └── examples/
     └── app/
 ```
@@ -131,9 +153,9 @@ ZYX_language/
 | M3 | 数组、结构体、内置函数 | 示例程序全部运行正确 |
 | M4 | 测试集 | `make test` 全部通过，覆盖全部语言功能 |
 | M5 | 性能测试与字节码 VM | 字节码 VM 通过全部测试；`make bench` 产出树遍历版、VM 版与 Python 的对比表 |
-| M6 | Agent 开发指南 | 全新 Agent 仅凭文档写出可运行程序 |
+| M6 | 开发指南与 AI 文档 | `docs/guide.md` 完成；全新 Agent 仅凭 `SKILL.md` 写出可运行程序 |
 | M7 | 应用程序 | 不少于 200 行，可完整游玩或使用 |
-| M8 | 总结报告（待定） | 汇总设计、测试、性能与 Agent 协作过程；素材存放在 `docs/notes/` |
+| M8 | 提交整理 | 按第 2 节对照表核对全部提交物；性能报告定稿；Agent 协作素材存放在 `docs/notes/` |
 
 测试集从 M2 起随功能同步编写，不等到 M4 才开始。
 
