@@ -1,0 +1,20 @@
+# 函数可以在声明之前调用
+print(later(2))                  # expect: 4
+fn later(x) { x * 2 }
+
+# 函数体可以引用同一作用域中稍后声明的变量，只要调用时已初始化
+fn show() { "config = {config}" }
+let config = "on"
+print(show())                    # expect: config = on
+
+# 嵌套函数同样提升
+fn outer() {
+    let r = inner(1)
+    fn inner(x) { x + 100 }
+    r
+}
+print(outer())                   # expect: 101
+
+# 递归的匿名函数
+let countdown = fn(n) => if n == 0 { "go" } else { countdown(n - 1) }
+print(countdown(3))              # expect: go

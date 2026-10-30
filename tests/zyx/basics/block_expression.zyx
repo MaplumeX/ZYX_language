@@ -1,0 +1,15 @@
+let v = {
+    let a = 2
+    let b = 3
+    a * b
+}
+print(v)                  # expect: 6
+
+let w = { let t = 1 }
+print(w)                  # expect: nil
+
+let sign = fn(x) => if x > 0 { "正" } else if x < 0 { "负" } else { "零" }
+print(sign(5), sign(-1), sign(0))    # expect: 正 负 零
+
+let maybe = if false { 1 }
+print(maybe)              # expect: nil

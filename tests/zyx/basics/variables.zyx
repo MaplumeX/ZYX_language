@@ -1,0 +1,32 @@
+let x = 1
+let y
+print(x, y)               # expect: 1 nil
+x = 10
+x += 5
+print(x)                  # expect: 15
+x -= 3
+x *= 2
+print(x)                  # expect: 24
+x /= 5
+print(x)                  # expect: 4
+x %= 3
+print(x)                  # expect: 1
+
+# 同一块中再次 let 会遮蔽
+let x = "shadow"
+print(x)                  # expect: shadow
+
+# 块作用域
+let a = 1
+{
+    let a = 2
+    print(a)              # expect: 2
+}
+print(a)                  # expect: 1
+
+# 初始化表达式中引用的是外层同名变量
+let n = 5
+{
+    let n = n + 1
+    print(n)              # expect: 6
+}

@@ -1,0 +1,3 @@
+let x = 5
+x(1)
+# expect-error: [line 2:2] TypeError: int is not callable

@@ -1,0 +1,4 @@
+impl Ghost {
+    fn f(self) { 1 }
+}
+# expect-error: [line 1:1] NameError: undefined struct 'Ghost'

@@ -1,0 +1,4 @@
+struct P { x }
+let p = P(1)
+print(p.z)
+# expect-error: [line 3:8] TypeError: P has no field 'z'

@@ -1,0 +1,10 @@
+print(true and false)     # expect: false
+print(true or false)      # expect: true
+print(not true)           # expect: false
+print(not false and true) # expect: true
+print(false or true and false)  # expect: false
+
+# 短路：右侧不会被求值
+fn boom() { error("should not run") }
+print(false and boom())   # expect: false
+print(true or boom())     # expect: true

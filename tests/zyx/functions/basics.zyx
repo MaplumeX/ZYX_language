@@ -1,0 +1,30 @@
+fn add(a, b) { a + b }
+print(add(2, 3))                 # expect: 5
+
+fn early(n) {
+    if n < 0 { return "negative" }
+    "non-negative"
+}
+print(early(-1), early(1))       # expect: negative non-negative
+
+fn nothing() { }
+print(nothing())                 # expect: nil
+fn bare_return() { return }
+print(bare_return())             # expect: nil
+fn ends_with_let() { let x = 1 }
+print(ends_with_let())           # expect: nil
+
+# 函数是一等值
+let f = add
+print(f(1, 1))                   # expect: 2
+fn apply(g, x) { g(x) }
+print(apply(fn(x) => x * 10, 4)) # expect: 40
+print(add)                       # expect: <fn add>
+print(fn(x) => x)                # expect: <fn>
+print(print)                     # expect: <fn print>
+print(type(add), type(print))    # expect: fn fn
+
+# 参数是局部变量
+fn modify(x) { x = 100; x }
+let v = 1
+print(modify(v), v)              # expect: 100 1

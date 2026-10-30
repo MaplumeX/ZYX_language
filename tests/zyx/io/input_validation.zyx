@@ -1,0 +1,12 @@
+# stdin: abc
+# stdin: 7
+let n = nil
+while n == nil {
+    let line = input("number: ")
+    if line == nil { break }
+    n = parse_int(line)
+    if n == nil { print("not a number") }
+}
+print("got {n}")
+# expect: number: not a number
+# expect: number: got 7

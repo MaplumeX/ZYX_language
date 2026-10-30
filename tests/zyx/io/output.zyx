@@ -1,0 +1,6 @@
+write("a")
+write("b", "c")
+print()                          # expect: ab c
+print("x", 1, [2], nil)          # expect: x 1 [2] nil
+write("no newline at end")
+print("")                        # expect: no newline at end

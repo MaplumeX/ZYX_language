@@ -1,0 +1,19 @@
+fn double(x) { x * 2 }
+fn add(a, b) { a + b }
+
+print(5 |> double)               # expect: 10
+print(5 |> double())             # expect: 10
+print(5 |> add(1) |> double)     # expect: 12
+print(5.double())                # expect: 10
+print(5.add(2).double())         # expect: 14
+
+let r = [5, 3, 8, 1]
+    |> filter(fn(x) => x > 2)
+    |> map(fn(x) => x * 10)
+    |> sort()
+print(r)                         # expect: [30, 50, 80]
+print([1, 2, 3] |> len() > 2)    # expect: true
+print(1..5 |> sum())             # expect: 10
+print(2 + 3 |> str())            # expect: 5
+print([3, 1, 2].sort().reverse())  # expect: [3, 2, 1]
+print("a,b".split(",").len())    # expect: 2

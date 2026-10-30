@@ -1,0 +1,4 @@
+let arr = [1, 2, 3]
+print(arr[5])
+# expect-error: [line 2:10] IndexError: index 5 out of range for array of length 3
+# expect-exit: 70

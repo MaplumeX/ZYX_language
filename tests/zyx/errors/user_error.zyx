@@ -1,0 +1,5 @@
+print("working")
+error("something went wrong")
+print("unreachable")
+# expect: working
+# expect-error: [line 2:6] RuntimeError: something went wrong

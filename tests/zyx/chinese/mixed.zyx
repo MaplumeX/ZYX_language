@@ -1,0 +1,6 @@
+# 中英文关键字混用
+fn 平方(x) { 返回 x * x }
+let 结果 = []
+for i 在 1..=3 { 结果.push(平方(i)) }
+如果 len(结果) == 3 { print(结果) } else { print("错误") }
+# expect: [1, 4, 9]

@@ -1,0 +1,13 @@
+print("a,b,,c".split(","))               # expect: ["a", "b", "", "c"]
+print("abc".split(""))                   # expect: ["a", "b", "c"]
+print("  hi  ".trim() + "|")             # expect: hi|
+print("MiXeD".upper(), "MiXeD".lower())  # expect: MIXED mixed
+print("a-b-c".replace("-", "+"))         # expect: a+b+c
+print("hello".starts_with("he"), "hello".ends_with("lo"), "hello".starts_with("lo"))   # expect: true true false
+print("hello".contains("ell"), "hello".index_of("l"), "hello".index_of("z"))           # expect: true 2 -1
+print("你好世界".index_of("世"))         # expect: 2
+print(pad_left(7, 3) + "|")              # expect:   7|
+print(pad_left("7", 3, "0"))             # expect: 007
+print(pad_right("ab", 4, ".") + "|")     # expect: ab..|
+print(pad_left("toolong", 3))            # expect: toolong
+print(ord("A"), chr(97), ord("中"))       # expect: 65 a 20013

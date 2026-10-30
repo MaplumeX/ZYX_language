@@ -1,0 +1,12 @@
+print(1 + 2 * 3)          # expect: 7
+print((1 + 2) * 3)        # expect: 9
+print(10 - 3 - 2)         # expect: 5
+print(2 ** 10)            # expect: 1024
+print(2 ** 3 ** 2)        # expect: 512
+print(-2 ** 2)            # expect: -4
+print(-(3 + 4))           # expect: -7
+print(1 + 2.5)            # expect: 3.5
+print(2.0 * 3)            # expect: 6.0
+print(0.1 + 0.2)          # expect: 0.30000000000000004
+print(2.0 ** 0.5)         # expect: 1.4142135623730951
+print(2 ** -1.0)          # expect: 0.5

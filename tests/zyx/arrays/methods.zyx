@@ -1,0 +1,19 @@
+let a = [3, 1, 2]
+a.push(5)
+print(a)                         # expect: [3, 1, 2, 5]
+print(a.pop(), a)                # expect: 5 [3, 1, 2]
+a.insert(0, 9)
+a.insert(4, 7)
+print(a)                         # expect: [9, 3, 1, 2, 7]
+print(a.remove(1), a)            # expect: 3 [9, 1, 2, 7]
+print(a.remove(-1), a)           # expect: 7 [9, 1, 2]
+print(a.contains(1), a.contains(5))      # expect: true false
+print(a.index_of(2), a.index_of(42))     # expect: 2 -1
+print(a.reverse(), a)            # expect: [2, 1, 9] [9, 1, 2]
+print(a.sort(), a)               # expect: [1, 2, 9] [9, 1, 2]
+print(["b", "c", "a"].sort())    # expect: ["a", "b", "c"]
+print(["ccc", "a", "bb"].sort(fn(s) => len(s)))   # expect: ["a", "bb", "ccc"]
+print([3, 1, 2].sort(fn(x) => -x))               # expect: [3, 2, 1]
+print([1, 2, 3].join("-"))       # expect: 1-2-3
+print(["x"].join(", "))          # expect: x
+print([].join(","))              # expect:

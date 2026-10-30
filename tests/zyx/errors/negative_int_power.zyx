@@ -1,0 +1,2 @@
+print(2 ** -1)
+# expect-error: [line 1:9] ValueError: negative exponent in integer power, use a float base

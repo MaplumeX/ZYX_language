@@ -1,0 +1,3 @@
+let items = [1, 2]
+if items { print("non-empty") }
+# expect-error: [line 2:4] TypeError: if condition must be bool, got array

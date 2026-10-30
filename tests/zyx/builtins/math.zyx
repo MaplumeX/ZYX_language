@@ -1,0 +1,4 @@
+print(abs(-5), abs(2.5), abs(-0.5))      # expect: 5 2.5 0.5
+print(sqrt(16), sqrt(2))                 # expect: 4.0 1.4142135623730951
+print(floor(2.7), ceil(2.1), round(2.5), round(-2.5), floor(-2.5))   # expect: 2 3 3 -3 -3
+print(floor(5), type(floor(5.0)))        # expect: 5 int

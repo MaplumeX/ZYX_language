@@ -1,0 +1,12 @@
+# 整数除法向下取整，取模符号跟随除数
+print(7 / 2)              # expect: 3
+print(-7 / 2)             # expect: -4
+print(7 / -2)             # expect: -4
+print(-7 / -2)            # expect: 3
+print(7 % 3)              # expect: 1
+print(-7 % 3)             # expect: 2
+print(7 % -3)             # expect: -2
+print(6 / 3)              # expect: 2
+print(float(7) / 2)       # expect: 3.5
+print(7.0 / 2)            # expect: 3.5
+print(-7.5 % 2)           # expect: 0.5

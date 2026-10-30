@@ -1,0 +1,2 @@
+let s = "age: " + 18
+# expect-error: [line 1:17] TypeError: unsupported operand types for '+': str and int

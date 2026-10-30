@@ -1,0 +1,16 @@
+let i = 0
+let total = 0
+while i < 5 {
+    total += i
+    i += 1
+}
+print(total)                  # expect: 10
+
+let n = 0
+while true {
+    n += 1
+    if n == 3 { continue }
+    if n > 5 { break }
+    write(n, "")
+}
+print()                       # expect: 1 2 4 5 

@@ -1,0 +1,5 @@
+print(int("42"), int(" -7 "), int(3.9), int(-3.9), int(true))   # expect: 42 -7 3 -3 1
+print(float(2), float("2.5"), float(false))                     # expect: 2.0 2.5 0.0
+print(str(12) + str(3.0) + str(nil) + str([1]))                 # expect: 123.0nil[1]
+print(parse_int("15"), parse_int("abc"), parse_int(""))         # expect: 15 nil nil
+print(type(1), type(1.0), type("s"), type(true), type(nil), type([]))   # expect: int float str bool nil array

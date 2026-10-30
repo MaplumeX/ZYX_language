@@ -1,0 +1,2 @@
+for x in 10 { print(x) }
+# expect-error: [line 1:10] TypeError: cannot iterate over int

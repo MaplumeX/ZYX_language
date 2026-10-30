@@ -1,0 +1,2 @@
+let n = len(42)
+# expect-error: [line 1:12] TypeError: len() of int

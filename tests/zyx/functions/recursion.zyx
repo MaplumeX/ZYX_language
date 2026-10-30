@@ -1,0 +1,17 @@
+fn fib(n) {
+    if n < 2 { return n }
+    fib(n - 1) + fib(n - 2)
+}
+print(fib(20))                   # expect: 6765
+
+fn fact(n) { if n <= 1 { 1 } else { n * fact(n - 1) } }
+print(fact(20))                  # expect: 2432902008176640000
+
+# 相互递归（声明提升）
+fn is_even(n) { if n == 0 { true } else { is_odd(n - 1) } }
+fn is_odd(n) { if n == 0 { false } else { is_even(n - 1) } }
+print(is_even(10), is_odd(7))    # expect: true true
+
+# 较深的递归
+fn depth(n) { if n == 0 { 0 } else { 1 + depth(n - 1) } }
+print(depth(5000))               # expect: 5000

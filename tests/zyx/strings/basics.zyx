@@ -1,0 +1,16 @@
+let s = "hello"
+print(s + " world")          # expect: hello world
+print("ab" * 3)              # expect: ababab
+print("x" * 0 == "")         # expect: true
+print(len(s))                # expect: 5
+print(s[0], s[-1])           # expect: h o
+print(s[1..3])               # expect: el
+print(s[3..100])             # expect: lo
+print(s[-3..5])              # expect: llo
+print(len(""))               # expect: 0
+print("tab\there")           # expect: tab	here
+print("quote: \"q\"")        # expect: quote: "q"
+print("back\\slash")         # expect: back\slash
+print(["a\"b"])              # expect: ["a\"b"]
+print(s[0..-1])              # expect: hell
+print([1, 2, 3, 4][-2..4])   # expect: [3, 4]

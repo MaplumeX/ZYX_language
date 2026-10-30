@@ -1,0 +1,9 @@
+let r = 2..6
+print(r, len(r), type(r))        # expect: 2..6 4 range
+print(len(5..1))                 # expect: 0
+print(r.contains(5), r.contains(6))   # expect: true false
+let n = 4
+print(0..n - 1)                  # expect: 0..3
+let total = 0
+for i in 1..=100 { total += i }
+print(total)                     # expect: 5050

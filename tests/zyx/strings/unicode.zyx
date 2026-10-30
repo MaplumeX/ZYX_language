@@ -1,0 +1,8 @@
+let s = "你好，世界"
+print(len(s))                # expect: 5
+print(s[0], s[4])            # expect: 你 界
+print(s[0..2])               # expect: 你好
+print(reverse(s))            # expect: 界世，好你
+for c in "中文" { print(c) }
+# expect: 中
+# expect: 文

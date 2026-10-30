@@ -1,0 +1,60 @@
+fn describe(n) {
+    match n {
+        0 => "zero",
+        1 | 2 | 3 => "small",
+        4..10 => "medium",
+        10..=99 => "large",
+        100.. => "huge",
+        x if x < 0 => "negative {x}",
+    }
+}
+for n in [0, 2, 5, 10, 99, 100, 12345, -3] { print(describe(n)) }
+# expect: zero
+# expect: small
+# expect: medium
+# expect: large
+# expect: large
+# expect: huge
+# expect: huge
+# expect: negative -3
+
+fn kind(v) {
+    match v {
+        "a" => "letter a"
+        true => "yes"
+        nil => "nothing"
+        1.5 => "one and a half"
+        _ => "other"
+    }
+}
+print(kind("a"), kind(true), kind(nil), kind(1.5), kind([]))   # expect: letter a yes nothing one and a half other
+
+# 区间上界、守卫与绑定
+let r = match 7 {
+    ..5 => "lt5",
+    ..=7 => "le7",
+    _ => "big",
+}
+print(r)                         # expect: le7
+let s = match -2 {
+    -5..0 => "neg range",
+    _ => "no",
+}
+print(s)                         # expect: neg range
+let t = match 15 {
+    n if n % 15 == 0 => "FizzBuzz",
+    n if n % 3 == 0 => "Fizz",
+    _ => "plain",
+}
+print(t)                         # expect: FizzBuzz
+
+# 分支体可以是块
+let u = match 3 {
+    3 => {
+        let a = 10
+        a * 3
+    },
+    _ => 0,
+}
+print(u)                         # expect: 30
+print(match 1.0 { 1 => "int pattern matches float 1.0", _ => "no" })   # expect: int pattern matches float 1.0

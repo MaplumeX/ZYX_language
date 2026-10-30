@@ -1,0 +1,46 @@
+fn make_counter() {
+    let n = 0
+    fn() { n += 1; n }
+}
+let c1 = make_counter()
+let c2 = make_counter()
+c1(); c1()
+print(c1(), c2())                # expect: 3 1
+
+# 闭包捕获引用：外部修改对闭包可见
+let base = 10
+let add_base = fn(x) => x + base
+base = 20
+print(add_base(1))               # expect: 21
+
+# 闭包内修改外部变量
+let total = 0
+[1, 2, 3].map(fn(x) { total += x })
+print(total)                     # expect: 6
+
+# 每轮循环的变量是独立的
+let fs = []
+for i in 0..3 { fs.push(fn() => i * 10) }
+print(fs[0](), fs[1](), fs[2]())  # expect: 0 10 20
+
+# 多层嵌套捕获
+fn adder(a) {
+    fn(b) {
+        fn(c) => a + b + c
+    }
+}
+print(adder(1)(2)(3))            # expect: 6
+
+# 捕获参数
+fn make_multiplier(k) { fn(x) => x * k }
+let triple = make_multiplier(3)
+print(triple(5))                 # expect: 15
+
+# 两个闭包共享同一个变量
+fn pair() {
+    let v = 0
+    [fn() { v += 1 }, fn() => v]
+}
+let p = pair()
+p[0](); p[0]()
+print(p[1]())                    # expect: 2

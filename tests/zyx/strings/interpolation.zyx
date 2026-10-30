@@ -1,0 +1,12 @@
+let name = "ZYX"
+let n = 3
+print("Hello, {name}!")              # expect: Hello, ZYX!
+print("{n} + 1 = {n + 1}")           # expect: 3 + 1 = 4
+print("list: {[1, 2]}")              # expect: list: [1, 2]
+let words = ["a", "b"]
+print("nested: {words}")             # expect: nested: ["a", "b"]
+print("{{literal}}")                 # expect: {literal}
+print("{n}{n}{n}")                   # expect: 333
+print("float {1.0} nil {nil}")       # expect: float 1.0 nil nil
+fn sq(x) { x * x }
+print("sq = {sq(n)}")                # expect: sq = 9

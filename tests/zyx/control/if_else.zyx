@@ -1,0 +1,21 @@
+fn grade(score) {
+    if score >= 90 {
+        "A"
+    } else if score >= 60 {
+        "B"
+    } else {
+        "C"
+    }
+}
+print(grade(95), grade(75), grade(30))   # expect: A B C
+
+# else 可以另起一行
+let x = 3
+if x > 5 {
+    print("big")
+}
+else {
+    print("small")                       # expect: small
+}
+
+if true { print("one-line") }            # expect: one-line

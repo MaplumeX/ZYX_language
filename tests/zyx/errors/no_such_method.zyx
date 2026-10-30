@@ -1,0 +1,10 @@
+# area 是 Square 的方法，但 int 上没有，也没有同名函数：运行时报错
+struct Square { side }
+impl Square {
+    fn area(self) { self.side ** 2 }
+}
+print(Square(3).area())
+print(5.area())
+# expect: 9
+# expect-error: [line 7:8] NameError: int has no method 'area' and no function 'area' is defined
+# expect-exit: 70

@@ -1,0 +1,12 @@
+# stdin: Alice
+# stdin: 20
+# stdin:   spaced
+let name = input("name? ")
+let age = int(input())
+let raw = input()
+print("hello {name}, next year {age + 1}")
+print("[{raw}]")
+print(input())
+# expect: name? hello Alice, next year 21
+# expect: [  spaced]
+# expect: nil

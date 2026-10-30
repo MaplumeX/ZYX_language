@@ -1,0 +1,36 @@
+struct Point { x, y = 0 }
+
+let p = Point(3, 4)
+print(p)                         # expect: Point(x: 3, y: 4)
+print(p.x, p.y)                  # expect: 3 4
+let q = Point(x: 1)
+print(q)                         # expect: Point(x: 1, y: 0)
+let r = Point(y: 7, x: 2)
+print(r)                         # expect: Point(x: 2, y: 7)
+p.x = 10
+p.y += 1
+print(p)                         # expect: Point(x: 10, y: 5)
+print(type(p), type(Point))      # expect: Point struct
+print(Point)                     # expect: <struct Point>
+print(Point(1, 2) == Point(1, 2), Point(1, 2) == Point(2, 1))   # expect: true false
+
+# 引用语义
+let alias = p
+alias.x = 0
+print(p.x)                       # expect: 0
+let dup = copy(p)
+dup.x = 42
+print(p.x, dup.x)                # expect: 0 42
+
+# 默认值每次构造都重新求值
+struct Bag { items = [] }
+let b1 = Bag()
+let b2 = Bag()
+b1.items.push(1)
+print(b1.items, b2.items)        # expect: [1] []
+
+# 结构体可以嵌套
+struct Line { from, to }
+let line = Line(Point(0, 0), Point(3, 4))
+print(line.to.x)                 # expect: 3
+print(line)                      # expect: Line(from: Point(x: 0, y: 0), to: Point(x: 3, y: 4))

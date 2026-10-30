@@ -1,0 +1,3 @@
+fn forever(n) { forever(n + 1) }
+forever(0)
+# expect-error: [line 1:24] RuntimeError: stack overflow

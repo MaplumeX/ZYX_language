@@ -1,0 +1,2 @@
+let n = int("12a")
+# expect-error: [line 1:12] ValueError: invalid integer literal: "12a"

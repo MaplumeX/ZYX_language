@@ -1,0 +1,3 @@
+let s = "ab"
+print(s[-3])
+# expect-error: [line 2:8] IndexError: index -3 out of range for string of length 2

@@ -1,0 +1,2 @@
+assert(1 > 2, "math is broken")
+# expect-error: [line 1:7] AssertionError: math is broken

@@ -1,0 +1,2 @@
+print(true and 1)
+# expect-error: [line 1:12] TypeError: operand of 'and' must be bool, got int

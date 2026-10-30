@@ -1,0 +1,6 @@
+# 拼错的函数名在运行前即被发现
+let xs = [3, 1, 2]
+print("start")
+let r = xs |> fliter(fn(x) => x > 1)
+# expect-error: [line 4:15] NameError: undefined function or method 'fliter'
+# expect-exit: 65

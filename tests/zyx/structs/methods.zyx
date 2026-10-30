@@ -1,0 +1,37 @@
+struct Point { x, y }
+
+impl Point {
+    fn len2(self) { self.x ** 2 + self.y ** 2 }
+    fn add(self, other) { Point(self.x + other.x, self.y + other.y) }
+    fn move_by(self, dx, dy) {
+        self.x += dx
+        self.y += dy
+    }
+}
+
+let p = Point(3, 4)
+print(p.len2())                  # expect: 25
+print(p.add(Point(1, 1)))        # expect: Point(x: 4, y: 5)
+p.move_by(1, 2)
+print(p)                         # expect: Point(x: 4, y: 6)
+
+# 方法也可以通过管道调用
+print(p |> len2())               # expect: 52
+
+# 同一结构体可以有多个 impl 块，impl 可以写在使用之后
+print(p.describe())              # expect: (4, 6)
+impl Point {
+    fn describe(self) { "({self.x}, {self.y})" }
+}
+
+# 方法优先于同名的全局函数；其他类型仍走全局函数
+fn describe(x) { "global {x}" }
+print(p.describe(), 5.describe())   # expect: (4, 6) global 5
+
+# 方法内部可以调用其他方法
+struct Counter { n = 0 }
+impl Counter {
+    fn inc(self) { self.n += 1; self }
+    fn twice(self) { self.inc().inc() }
+}
+print(Counter().twice().n)       # expect: 2

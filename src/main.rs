@@ -3,16 +3,29 @@
 use std::process::exit;
 
 use zyx::ast::sexpr_program;
-use zyx::parser;
+use zyx::interp::Interp;
+use zyx::{parser, resolver};
 
 /// 退出码见 reference.md 9.3。
 const EXIT_USAGE: i32 = 64;
 const EXIT_COMPILE: i32 = 65;
 const EXIT_RUNTIME: i32 = 70;
 
+/// 树遍历后端每层 ZYX 调用会占用多层 Rust 栈帧，在大栈线程中运行以支撑 10000 层调用深度。
+const STACK_SIZE: usize = 1 << 30;
+
 const USAGE: &str = "usage: zyx [--backend tree|vm] [--ast] <file.zyx>";
 
 fn main() {
+    let worker = std::thread::Builder::new().stack_size(STACK_SIZE).spawn(run_cli);
+    let code = match worker.map(|h| h.join()) {
+        Ok(Ok(code)) => code,
+        _ => EXIT_RUNTIME,
+    };
+    exit(code);
+}
+
+fn run_cli() -> i32 {
     let mut backend = String::from("tree");
     let mut dump_ast = false;
     let mut path = None;
@@ -27,7 +40,7 @@ fn main() {
             "--ast" => dump_ast = true,
             "-h" | "--help" => {
                 println!("{USAGE}");
-                return;
+                return 0;
             }
             _ if arg.starts_with('-') => usage_error(&format!("unknown option '{arg}'")),
             _ if path.is_none() => path = Some(arg),
@@ -54,11 +67,31 @@ fn main() {
 
     if dump_ast {
         println!("{}", sexpr_program(&program));
-        return;
+        return 0;
     }
 
-    eprintln!("zyx: the '{backend}' backend is not implemented yet");
-    exit(EXIT_RUNTIME);
+    let ir = match resolver::resolve(&program) {
+        Ok(ir) => ir,
+        Err(e) => {
+            eprintln!("{e}");
+            exit(EXIT_COMPILE);
+        }
+    };
+
+    if backend == "vm" {
+        eprintln!("zyx: the 'vm' backend is not implemented yet");
+        exit(EXIT_RUNTIME);
+    }
+
+    let mut interp = Interp::new(&ir);
+    match interp.run(&ir) {
+        Ok(()) => 0,
+        Err(e) => {
+            interp.flush();
+            eprintln!("{e}");
+            EXIT_RUNTIME
+        }
+    }
 }
 
 fn usage_error(msg: &str) -> ! {

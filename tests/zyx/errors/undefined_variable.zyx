@@ -1,0 +1,5 @@
+# 未声明的变量在运行前报错，程序不产生任何输出
+print("before")
+print(totl)
+# expect-error: [line 3:7] NameError: undefined variable 'totl'
+# expect-exit: 65

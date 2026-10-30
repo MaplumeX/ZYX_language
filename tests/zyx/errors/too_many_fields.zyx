@@ -1,0 +1,3 @@
+struct P { x }
+P(1, 2)
+# expect-error: [line 2:2] TypeError: P has 1 fields, got 2 arguments

@@ -1,0 +1,2 @@
+print(1 < "2")
+# expect-error: [line 1:9] TypeError: cannot compare int and str

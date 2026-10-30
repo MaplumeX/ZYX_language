@@ -1,0 +1,12 @@
+print(1 < 2, 2 <= 2, 3 > 4, 4 >= 5)   # expect: true true false false
+print(1 == 1.0)                       # expect: true
+print(1 != 2)                         # expect: true
+print("abc" < "abd")                  # expect: true
+print("b" > "abc")                    # expect: true
+print(1 == "1")                       # expect: false
+print(nil == nil)                     # expect: true
+print(nil == false)                   # expect: false
+print([1, [2, 3]] == [1, [2, 3]])     # expect: true
+print([1, 2] == [2, 1])               # expect: false
+print(0..3 == 0..3)                   # expect: true
+print(2.5 > 2)                        # expect: true

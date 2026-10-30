@@ -1,0 +1,18 @@
+let a = [1, 2]
+let b = a
+b.push(3)
+print(a)                         # expect: [1, 2, 3]
+
+let c = copy(a)
+c.push(4)
+print(a, c)                      # expect: [1, 2, 3] [1, 2, 3, 4]
+
+fn fill(xs) { xs[0] = "changed" }
+fill(a)
+print(a[0])                      # expect: changed
+
+# 浅拷贝：内层数组仍然共享
+let outer = [[1], [2]]
+let shallow = copy(outer)
+shallow[0].push(9)
+print(outer)                     # expect: [[1, 9], [2]]

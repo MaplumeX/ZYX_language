@@ -1,0 +1,3 @@
+let zero = 0
+print(10 / zero)
+# expect-error: [line 2:10] RuntimeError: division by zero

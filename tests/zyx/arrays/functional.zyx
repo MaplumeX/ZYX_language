@@ -1,0 +1,13 @@
+let xs = [1, 2, 3, 4, 5]
+print(xs.map(fn(x) => x * x))                     # expect: [1, 4, 9, 16, 25]
+print(xs.filter(fn(x) => x % 2 == 1))             # expect: [1, 3, 5]
+print(xs.reduce(0, fn(acc, x) => acc + x))        # expect: 15
+print(xs.reduce("", fn(acc, x) => acc + str(x)))  # expect: 12345
+print(sum(xs), sum([]), sum([1.5, 2]))            # expect: 15 0 3.5
+print(min(xs), max(xs))                           # expect: 1 5
+print(min(4, 2, 8), max(4, 2, 8))                 # expect: 2 8
+print(max(["pear", "apple"]))                     # expect: pear
+print(map(0..4, fn(i) => i * 2))                  # expect: [0, 2, 4, 6]
+print(filter(1..10, fn(i) => i % 3 == 0))         # expect: [3, 6, 9]
+print(map("abc", upper))                          # expect: ["A", "B", "C"]
+print(xs.map(str))                                # expect: ["1", "2", "3", "4", "5"]

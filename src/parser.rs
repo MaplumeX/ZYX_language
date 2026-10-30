@@ -323,19 +323,25 @@ impl Parser {
         Ok(lhs)
     }
 
-    /// `x |> f` → `f(x)`；`x |> f(a)` → `f(x, a)`；`x |> o.m(a)` → `o.m(x, a)`。
+    /// `x |> f` → `x.f()`；`x |> f(a)` → `x.f(a)`；`x |> o.m(a)` → `o.m(x, a)`。
+    /// 前两种走统一调用语法，因此结构体方法也能用管道调用。
     fn desugar_pipe(lhs: Expr, rhs: Expr, pos: Pos) -> Result<Expr> {
-        let first = Arg { name: None, value: lhs };
-        let rhs_pos = rhs.pos;
+        let mut rhs_pos = rhs.pos;
         let kind = match rhs.kind {
-            ExprKind::Ident(_) => ExprKind::Call { callee: Box::new(rhs), args: vec![first] },
-            ExprKind::Field(obj, name) => ExprKind::MethodCall { obj, name, args: vec![first] },
+            ExprKind::Ident(name) => ExprKind::MethodCall { obj: Box::new(lhs), name, args: Vec::new() },
+            ExprKind::Call { callee, args } if matches!(callee.kind, ExprKind::Ident(_)) => {
+                // 报错位置指向函数名
+                rhs_pos = callee.pos;
+                let ExprKind::Ident(name) = callee.kind else { unreachable!() };
+                ExprKind::MethodCall { obj: Box::new(lhs), name, args }
+            }
+            ExprKind::Field(obj, name) => ExprKind::MethodCall { obj, name, args: vec![Arg { name: None, value: lhs }] },
             ExprKind::Call { callee, mut args } => {
-                args.insert(0, first);
+                args.insert(0, Arg { name: None, value: lhs });
                 ExprKind::Call { callee, args }
             }
             ExprKind::MethodCall { obj, name, mut args } => {
-                args.insert(0, first);
+                args.insert(0, Arg { name: None, value: lhs });
                 ExprKind::MethodCall { obj, name, args }
             }
             _ => return Err(Self::err_at(pos, "right side of '|>' must be a function name or call")),
@@ -814,14 +820,15 @@ mod tests {
 
     #[test]
     fn pipes_desugar() {
-        assert_eq!(ast("x |> f"), "(call f x)");
-        assert_eq!(ast("x |> f(1) |> g()"), "(call g (call f x 1))");
+        assert_eq!(ast("x |> f"), "(method x f)");
+        assert_eq!(ast("x |> f(1) |> g()"), "(method (method x f 1) g)");
         assert_eq!(ast("x |> o.m(1)"), "(method o m x 1)");
-        assert_eq!(ast("[1, 2] |> len() > 2"), "(> (call len (array 1 2)) 2)");
-        assert_eq!(ast("a + b |> f()"), "(call f (+ a b))");
-        assert_eq!(ast("1..9 |> f()"), "(call f (.. 1 9))");
-        assert_eq!(ast("a and b |> f()"), "(and a (call f b))");
-        assert_eq!(ast("xs\n  |> map(fn(x) => x * 2)\n  |> sum()"), "(call sum (call map xs (fn (x) (block (* x 2)))))");
+        assert_eq!(ast("x |> mk(1)(2)"), "(call (call mk 1) x 2)");
+        assert_eq!(ast("[1, 2] |> len() > 2"), "(> (method (array 1 2) len) 2)");
+        assert_eq!(ast("a + b |> f()"), "(method (+ a b) f)");
+        assert_eq!(ast("1..9 |> f()"), "(method (.. 1 9) f)");
+        assert_eq!(ast("a and b |> f()"), "(and a (method b f))");
+        assert_eq!(ast("xs\n  |> map(fn(x) => x * 2)\n  |> sum()"), "(method (method xs map (fn (x) (block (* x 2)))) sum)");
     }
 
     #[test]

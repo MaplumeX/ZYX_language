@@ -8,7 +8,7 @@
     # expect-exit: <数字>   退出码应为 <数字>
     # stdin: <文本>         作为标准输入的一行喂给程序
 
-没有 expect-error 的测试要求退出码为 0 且标准错误为空。
+没有 expect-error 的测试要求退出码为 0 且标准错误为空。比对时忽略行尾空白。
 
 用法：python3 tests/run_tests.py [--bin PATH] [--backend tree] [--backend vm] [过滤词]
 """
@@ -58,7 +58,8 @@ def run_one(binary, backend, path):
 
     stdout = proc.stdout.decode("utf-8", "replace").replace("\r\n", "\n")
     stderr = proc.stderr.decode("utf-8", "replace").strip()
-    actual_lines = stdout.split("\n")
+    # 行尾空白不参与比较（编辑器常会删掉注释行尾的空格）
+    actual_lines = [line.rstrip() for line in stdout.split("\n")]
     if actual_lines and actual_lines[-1] == "":
         actual_lines.pop()
 

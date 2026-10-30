@@ -1,0 +1,3 @@
+let big = 9223372036854775807
+print(big + 1)
+# expect-error: [line 2:11] RuntimeError: integer overflow

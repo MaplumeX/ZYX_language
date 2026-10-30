@@ -1,0 +1,5 @@
+fn show() { print(late) }
+show()
+let late = 1
+# expect-error: [line 1:19] NameError: variable 'late' is used before it is initialized
+# expect-exit: 70

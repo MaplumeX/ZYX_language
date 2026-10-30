@@ -1,0 +1,5 @@
+let r = match 42 {
+    0 => "zero",
+    1..10 => "small",
+}
+# expect-error: [line 1:9] RuntimeError: no match arm for value 42
