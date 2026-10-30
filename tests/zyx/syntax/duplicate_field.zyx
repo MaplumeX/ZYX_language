@@ -1,0 +1,2 @@
+struct P { x, y, x }
+# expect-error: [line 1:18] SyntaxError: duplicate field 'x'

@@ -1,0 +1,5 @@
+let x = 1
+let s = match x {
+    1 "one",
+}
+# expect-error: [line 3:7] SyntaxError: expected '=>' after match pattern, found string

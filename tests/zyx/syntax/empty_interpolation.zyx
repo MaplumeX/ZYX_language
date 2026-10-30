@@ -1,0 +1,2 @@
+print("a{}b")
+# expect-error: [line 1:9] SyntaxError: empty interpolation in string

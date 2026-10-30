@@ -1,0 +1,5 @@
+struct P { x }
+impl P {
+    let y = 1
+}
+# expect-error: [line 3:5] SyntaxError: expected method declaration in impl, found 'let'

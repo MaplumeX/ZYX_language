@@ -1,0 +1,3 @@
+let x = 1
+}
+# expect-error: [line 2:1] SyntaxError: unexpected '}'

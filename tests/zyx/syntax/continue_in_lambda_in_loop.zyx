@@ -1,0 +1,5 @@
+# 循环中的匿名函数体内不能 continue 外层循环
+for i in 0..3 {
+    let f = fn() { continue }
+}
+# expect-error: [line 3:20] SyntaxError: 'continue' outside of loop

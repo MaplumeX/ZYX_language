@@ -1,0 +1,4 @@
+fn f() {
+    break
+}
+# expect-error: [line 2:5] SyntaxError: 'break' outside of loop

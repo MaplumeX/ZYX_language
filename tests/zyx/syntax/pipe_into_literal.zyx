@@ -1,0 +1,2 @@
+let x = [1, 2] |> 3
+# expect-error: [line 1:16] SyntaxError: right side of '|>' must be a function name or call

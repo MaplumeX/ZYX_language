@@ -1,0 +1,2 @@
+fn add(a, b, a) { a + b }
+# expect-error: [line 1:14] SyntaxError: duplicate parameter 'a'

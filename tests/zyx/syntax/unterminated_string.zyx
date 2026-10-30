@@ -1,0 +1,4 @@
+# 字符串未闭合
+let s = "hello
+# expect-error: [line 2:9] SyntaxError: unterminated string
+# expect-exit: 65

@@ -1,0 +1,2 @@
+let a = [1，2]
+# expect-error: [line 1:11] SyntaxError: full-width character '，', use ',' instead

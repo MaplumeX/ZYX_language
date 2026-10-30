@@ -1,0 +1,2 @@
+let a = 1 let b = 2
+# expect-error: [line 1:11] SyntaxError: expected end of statement, found 'let'

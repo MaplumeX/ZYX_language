@@ -1,0 +1,5 @@
+fn f(n) {
+    if n > 0 {
+        print(n)
+}
+# expect-error: [line 1:9] SyntaxError: unclosed '{', expected '}'

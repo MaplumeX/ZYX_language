@@ -1,0 +1,3 @@
+let x = 1
+return x
+# expect-error: [line 2:1] SyntaxError: 'return' outside of function

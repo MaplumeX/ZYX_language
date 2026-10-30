@@ -1,0 +1,2 @@
+print("tab\q")
+# expect-error: [line 1:11] SyntaxError: invalid escape sequence '\q'

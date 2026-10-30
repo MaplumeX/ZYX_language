@@ -1,0 +1,2 @@
+let x = 3abc
+# expect-error: [line 1:9] SyntaxError: invalid number literal

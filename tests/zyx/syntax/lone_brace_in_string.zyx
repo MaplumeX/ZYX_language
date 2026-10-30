@@ -1,0 +1,2 @@
+print("a } b")
+# expect-error: [line 1:10] SyntaxError: single '}' in string, use '}}' for a literal brace

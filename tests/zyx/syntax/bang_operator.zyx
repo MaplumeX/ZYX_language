@@ -1,0 +1,3 @@
+let ok = true
+print(!ok)
+# expect-error: [line 2:7] SyntaxError: unexpected '!', use 'not' for logical negation

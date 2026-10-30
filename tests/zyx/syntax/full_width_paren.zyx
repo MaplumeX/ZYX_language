@@ -1,0 +1,4 @@
+# 中文输入法下误输入全角括号
+print（"你好"）
+# expect-error: [line 2:6] SyntaxError: full-width character '（', use '(' instead
+# expect-exit: 65

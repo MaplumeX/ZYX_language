@@ -1,0 +1,2 @@
+let s = 'abc'
+# expect-error: [line 1:9] SyntaxError: strings use double quotes "..."
