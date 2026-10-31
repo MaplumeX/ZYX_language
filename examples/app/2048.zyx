@@ -420,7 +420,8 @@ fn run(game, pending) {
             finish(game, "再见！")
             return
         } else {
-            print("未知命令：{cmd}，输入 h 查看帮助。")
+            let shown = if cmd == "" { "（空行）" } else { cmd }
+            print("未知命令：{shown}，输入 h 查看帮助。")
         }
     }
 }
@@ -437,7 +438,7 @@ fn main() {
         return
     }
     let pending = first
-    if starts_with(cmd, "seed") {
+    if cmd == "seed" or starts_with(cmd, "seed ") {
         let n = parse_int(cmd[4..len(cmd)])
         if n == nil {
             print("seed 参数无效：{first}")
