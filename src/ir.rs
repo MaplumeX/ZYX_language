@@ -79,7 +79,12 @@ pub struct Block {
 pub enum Hoist {
     Struct(Slot, Rc<StructProto>),
     Fn(Slot, u32),
-    Impl { target: Var, name: Rc<str>, methods: Vec<(Rc<str>, u32)>, pos: Pos },
+    Impl {
+        target: Var,
+        name: Rc<str>,
+        methods: Vec<(Rc<str>, u32)>,
+        pos: Pos,
+    },
 }
 
 pub enum Stmt {
@@ -87,7 +92,13 @@ pub enum Stmt {
     Assign(Target, Option<BinOp>, Expr, Pos),
     Expr(Expr),
     While(Expr, Block, Pos),
-    For { index: Option<Slot>, var: Slot, iter: Expr, body: Block, pos: Pos },
+    For {
+        index: Option<Slot>,
+        var: Slot,
+        iter: Expr,
+        body: Block,
+        pos: Pos,
+    },
     Break,
     Continue,
     Return(Option<Expr>),
@@ -108,9 +119,20 @@ pub enum Expr {
     Unary(UnOp, Box<Expr>, Pos),
     Binary(BinOp, Box<Expr>, Box<Expr>, Pos),
     Range(Box<Expr>, Box<Expr>, bool, Pos),
-    Call { callee: Box<Expr>, args: Vec<Expr>, names: Option<Vec<Rc<str>>>, pos: Pos },
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Expr>,
+        names: Option<Vec<Rc<str>>>,
+        pos: Pos,
+    },
     /// 统一调用语法：先找结构体方法，找不到再调用 `fallback`（解析期确定的同名函数）。
-    MethodCall { obj: Box<Expr>, name: Rc<str>, fallback: Option<Box<Expr>>, args: Vec<Expr>, pos: Pos },
+    MethodCall {
+        obj: Box<Expr>,
+        name: Rc<str>,
+        fallback: Option<Box<Expr>>,
+        args: Vec<Expr>,
+        pos: Pos,
+    },
     Index(Box<Expr>, Box<Expr>, Pos),
     Field(Box<Expr>, Rc<str>, Pos),
     /// 创建闭包，值为 `Program::protos` 的下标。
@@ -132,7 +154,11 @@ pub enum Pattern {
     Wildcard,
     Bind(Slot),
     Lit(Value),
-    Range { lo: Option<i64>, hi: Option<i64>, inclusive: bool },
+    Range {
+        lo: Option<i64>,
+        hi: Option<i64>,
+        inclusive: bool,
+    },
     Or(Vec<Pattern>),
 }
 

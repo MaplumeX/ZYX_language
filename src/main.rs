@@ -52,7 +52,9 @@ fn run_cli() -> i32 {
         }
     }
 
-    let Some(path) = path else { usage_error("missing script file") };
+    let Some(path) = path else {
+        usage_error("missing script file")
+    };
     let src = match std::fs::read_to_string(&path) {
         Ok(s) => s,
         Err(e) => {

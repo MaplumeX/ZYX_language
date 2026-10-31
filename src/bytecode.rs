@@ -144,7 +144,10 @@ fn is_simple(e: &Expr) -> bool {
 }
 
 fn is_comparison(op: BinOp) -> bool {
-    matches!(op, BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge | BinOp::Eq | BinOp::Ne)
+    matches!(
+        op,
+        BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge | BinOp::Eq | BinOp::Ne
+    )
 }
 
 pub enum Fallback {
@@ -187,7 +190,10 @@ pub fn disassemble(prog: &Program, chunks: &[Rc<Chunk>]) -> String {
     let mut out = String::new();
     for (i, chunk) in chunks.iter().enumerate() {
         let name = match prog.protos.get(i) {
-            Some(p) => p.name.as_deref().map_or_else(|| format!("<fn #{i}>"), |n| format!("fn {n}")),
+            Some(p) => p
+                .name
+                .as_deref()
+                .map_or_else(|| format!("<fn #{i}>"), |n| format!("fn {n}")),
             None => "<script>".to_string(),
         };
         let _ = writeln!(out, "== {name} (slots: {}) ==", chunk.n_slots);
@@ -335,7 +341,11 @@ impl Compiler {
 
     fn last_op(&self, back: usize) -> Option<Op> {
         let n = self.chunk.code.len();
-        if n > back { Some(self.chunk.code[n - 1 - back]) } else { None }
+        if n > back {
+            Some(self.chunk.code[n - 1 - back])
+        } else {
+            None
+        }
     }
 
     /// 删除最后一条指令，撤销它对栈深度的影响，返回它和它的位置。
@@ -551,9 +561,17 @@ impl Compiler {
                     self.emit(Op::Closure(*idx));
                     self.set(*slot);
                 }
-                Hoist::Impl { target, name, methods, pos } => {
+                Hoist::Impl {
+                    target,
+                    name,
+                    methods,
+                    pos,
+                } => {
                     self.get(*target, name, *pos);
-                    self.chunk.impls.push(ImplDesc { name: name.clone(), methods: methods.clone() });
+                    self.chunk.impls.push(ImplDesc {
+                        name: name.clone(),
+                        methods: methods.clone(),
+                    });
                     let idx = (self.chunk.impls.len() - 1) as u32;
                     self.at(*pos).emit(Op::Impl(idx));
                 }
@@ -604,7 +622,11 @@ impl Compiler {
                 let start = self.chunk.code.len();
                 self.label = start;
                 let exits = self.cond(cond, BoolCtx::While, *pos);
-                self.loops.push(Loop { continue_at: start, breaks: Vec::new(), depth: self.depth });
+                self.loops.push(Loop {
+                    continue_at: start,
+                    breaks: Vec::new(),
+                    depth: self.depth,
+                });
                 self.block(body, false);
                 self.emit(Op::Jump(start as u32));
                 for j in exits {
@@ -612,7 +634,13 @@ impl Compiler {
                 }
                 self.end_loop();
             }
-            Stmt::For { index, var, iter, body, pos } => {
+            Stmt::For {
+                index,
+                var,
+                iter,
+                body,
+                pos,
+            } => {
                 self.expr(iter);
                 let h = self.alloc_hidden(2);
                 self.at(*pos).emit(Op::IterPrep(h));
@@ -627,7 +655,11 @@ impl Compiler {
                 if let Some(i) = index {
                     self.set(*i);
                 }
-                self.loops.push(Loop { continue_at: start, breaks: Vec::new(), depth: base_depth });
+                self.loops.push(Loop {
+                    continue_at: start,
+                    breaks: Vec::new(),
+                    depth: base_depth,
+                });
                 self.hoists(&body.hoists);
                 self.stmts(&body.stmts, false);
                 self.emit(Op::Jump(start as u32));
@@ -715,7 +747,9 @@ impl Compiler {
                             && matches!(**l, Expr::Var(Var::Local(t), ..) if t == *s)
                             && is_simple(r)) =>
             {
-                let Expr::Binary(bop, _, r, bpos) = e else { unreachable!() };
+                let Expr::Binary(bop, _, r, bpos) = e else {
+                    unreachable!()
+                };
                 self.expr(r);
                 if let (true, Some(Op::Const(c))) = (self.can_fuse(1), self.last_op(0)) {
                     self.pop_op();
@@ -851,7 +885,12 @@ impl Compiler {
                 self.expr(b);
                 self.at(*pos).emit(Op::Range(*inclusive));
             }
-            Expr::Call { callee, args, names, pos } => {
+            Expr::Call {
+                callee,
+                args,
+                names,
+                pos,
+            } => {
                 self.expr(callee);
                 for a in args {
                     self.expr(a);
@@ -868,7 +907,13 @@ impl Compiler {
                     }
                 }
             }
-            Expr::MethodCall { obj, name, fallback, args, pos } => {
+            Expr::MethodCall {
+                obj,
+                name,
+                fallback,
+                args,
+                pos,
+            } => {
                 self.expr(obj);
                 for a in args {
                     self.expr(a);
@@ -879,7 +924,11 @@ impl Compiler {
                     Some(Expr::Const(v)) => Fallback::Const(v.clone()),
                     Some(_) => unreachable!("fallback is a variable or a builtin"),
                 };
-                self.chunk.methods.push(MethodDesc { name: name.clone(), argc: args.len() as u32, fallback });
+                self.chunk.methods.push(MethodDesc {
+                    name: name.clone(),
+                    argc: args.len() as u32,
+                    fallback,
+                });
                 let idx = (self.chunk.methods.len() - 1) as u32;
                 self.at(*pos).emit(Op::Method(idx));
             }

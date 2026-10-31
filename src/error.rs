@@ -37,7 +37,12 @@ pub struct ZyxError {
 
 impl ZyxError {
     pub fn new(kind: ErrorKind, line: u32, col: u32, msg: impl Into<String>) -> Self {
-        ZyxError { kind, msg: msg.into(), line, col }
+        ZyxError {
+            kind,
+            msg: msg.into(),
+            line,
+            col,
+        }
     }
 
     pub fn syntax(line: u32, col: u32, msg: impl Into<String>) -> Self {
@@ -47,7 +52,14 @@ impl ZyxError {
 
 impl fmt::Display for ZyxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[line {}:{}] {}: {}", self.line, self.col, self.kind.name(), self.msg)
+        write!(
+            f,
+            "[line {}:{}] {}: {}",
+            self.line,
+            self.col,
+            self.kind.name(),
+            self.msg
+        )
     }
 }
 

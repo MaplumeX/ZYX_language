@@ -52,15 +52,33 @@ pub enum ExprKind {
     Array(Vec<Expr>),
     Unary(UnOp, Box<Expr>),
     Binary(BinOp, Box<Expr>, Box<Expr>),
-    Range { start: Box<Expr>, end: Box<Expr>, inclusive: bool },
-    Call { callee: Box<Expr>, args: Vec<Arg> },
+    Range {
+        start: Box<Expr>,
+        end: Box<Expr>,
+        inclusive: bool,
+    },
+    Call {
+        callee: Box<Expr>,
+        args: Vec<Arg>,
+    },
     /// `obj.name(args)`，按统一调用语法解析（ADR-0005）。
-    MethodCall { obj: Box<Expr>, name: String, args: Vec<Arg> },
+    MethodCall {
+        obj: Box<Expr>,
+        name: String,
+        args: Vec<Arg>,
+    },
     Index(Box<Expr>, Box<Expr>),
     Field(Box<Expr>, String),
     Lambda(Rc<FnDecl>),
-    If { cond: Box<Expr>, then: Block, else_: Option<Box<Expr>> },
-    Match { subject: Box<Expr>, arms: Vec<Arm> },
+    If {
+        cond: Box<Expr>,
+        then: Block,
+        else_: Option<Box<Expr>>,
+    },
+    Match {
+        subject: Box<Expr>,
+        arms: Vec<Arm>,
+    },
     Block(Block),
 }
 
@@ -116,7 +134,11 @@ pub enum Pattern {
     Bool(bool),
     Nil,
     /// `lo..hi`、`lo..=hi`、`lo..`、`..hi`、`..=hi`
-    Range { lo: Option<i64>, hi: Option<i64>, inclusive: bool },
+    Range {
+        lo: Option<i64>,
+        hi: Option<i64>,
+        inclusive: bool,
+    },
     Or(Vec<Pattern>),
 }
 
@@ -128,15 +150,33 @@ pub struct Stmt {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum StmtKind {
-    Let { name: String, init: Option<Expr> },
+    Let {
+        name: String,
+        init: Option<Expr>,
+    },
     /// `op` 为复合赋值的运算符，普通赋值为 `None`。目标只能是标识符、下标或字段。
-    Assign { target: Expr, op: Option<BinOp>, value: Expr },
+    Assign {
+        target: Expr,
+        op: Option<BinOp>,
+        value: Expr,
+    },
     Expr(Expr),
     Fn(Rc<FnDecl>),
     Struct(Rc<StructDecl>),
-    Impl { name: String, methods: Vec<Rc<FnDecl>> },
-    While { cond: Expr, body: Block },
-    For { index: Option<String>, var: String, iter: Expr, body: Block },
+    Impl {
+        name: String,
+        methods: Vec<Rc<FnDecl>>,
+    },
+    While {
+        cond: Expr,
+        body: Block,
+    },
+    For {
+        index: Option<String>,
+        var: String,
+        iter: Expr,
+        body: Block,
+    },
     Break,
     Continue,
     Return(Option<Expr>),
@@ -222,9 +262,10 @@ pub fn sexpr_stmt(s: &Stmt) -> String {
             });
             list("struct", std::iter::once(d.name.clone()).chain(fields))
         }
-        StmtKind::Impl { name, methods } => {
-            list("impl", std::iter::once(name.clone()).chain(methods.iter().map(|m| sexpr_fn(m))))
-        }
+        StmtKind::Impl { name, methods } => list(
+            "impl",
+            std::iter::once(name.clone()).chain(methods.iter().map(|m| sexpr_fn(m))),
+        ),
         StmtKind::While { cond, body } => list("while", [sexpr_expr(cond), sexpr_block(body)]),
         StmtKind::For { index, var, iter, body } => {
             let vars = match index {
@@ -263,19 +304,24 @@ pub fn sexpr_expr(e: &Expr) -> String {
             list(head, [sexpr_expr(x)])
         }
         ExprKind::Binary(op, a, b) => list(op.symbol(), [sexpr_expr(a), sexpr_expr(b)]),
-        ExprKind::Range { start, end, inclusive } => {
-            list(if *inclusive { "..=" } else { ".." }, [sexpr_expr(start), sexpr_expr(end)])
-        }
+        ExprKind::Range { start, end, inclusive } => list(
+            if *inclusive { "..=" } else { ".." },
+            [sexpr_expr(start), sexpr_expr(end)],
+        ),
         ExprKind::Call { callee, args } => list("call", std::iter::once(sexpr_expr(callee)).chain(sexpr_args(args))),
-        ExprKind::MethodCall { obj, name, args } => {
-            list("method", [sexpr_expr(obj), name.clone()].into_iter().chain(sexpr_args(args)))
-        }
+        ExprKind::MethodCall { obj, name, args } => list(
+            "method",
+            [sexpr_expr(obj), name.clone()].into_iter().chain(sexpr_args(args)),
+        ),
         ExprKind::Index(a, i) => list("index", [sexpr_expr(a), sexpr_expr(i)]),
         ExprKind::Field(a, name) => list("field", [sexpr_expr(a), name.clone()]),
         ExprKind::Lambda(f) => sexpr_fn(f),
-        ExprKind::If { cond, then, else_ } => {
-            list("if", [sexpr_expr(cond), sexpr_block(then)].into_iter().chain(else_.iter().map(|e| sexpr_expr(e))))
-        }
+        ExprKind::If { cond, then, else_ } => list(
+            "if",
+            [sexpr_expr(cond), sexpr_block(then)]
+                .into_iter()
+                .chain(else_.iter().map(|e| sexpr_expr(e))),
+        ),
         ExprKind::Match { subject, arms } => {
             let arms = arms.iter().map(|arm| {
                 let mut items = vec![sexpr_pattern(&arm.pattern)];

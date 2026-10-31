@@ -147,7 +147,13 @@ impl<'a> Lexer<'a> {
                 _ => break,
             }
         }
-        let at = |k: usize| if j + k < self.end { Some(self.chars[j + k]) } else { None };
+        let at = |k: usize| {
+            if j + k < self.end {
+                Some(self.chars[j + k])
+            } else {
+                None
+            }
+        };
         match (at(0), at(1)) {
             (Some('|'), Some('>')) => true,
             (Some('.'), next) => next != Some('.'),
@@ -175,8 +181,7 @@ impl<'a> Lexer<'a> {
             if text.is_empty() {
                 return Err(self.err(line, col, "invalid hexadecimal literal"));
             }
-            let n = i64::from_str_radix(&text, 16)
-                .map_err(|_| self.err(line, col, "integer literal is too large"))?;
+            let n = i64::from_str_radix(&text, 16).map_err(|_| self.err(line, col, "integer literal is too large"))?;
             tok = Tok::Int(n);
         } else {
             let mut is_float = false;
@@ -202,9 +207,15 @@ impl<'a> Lexer<'a> {
                 }
             }
             tok = if is_float {
-                Tok::Float(text.parse().map_err(|_| self.err(line, col, "invalid number literal"))?)
+                Tok::Float(
+                    text.parse()
+                        .map_err(|_| self.err(line, col, "invalid number literal"))?,
+                )
             } else {
-                Tok::Int(text.parse().map_err(|_| self.err(line, col, "integer literal is too large"))?)
+                Tok::Int(
+                    text.parse()
+                        .map_err(|_| self.err(line, col, "integer literal is too large"))?,
+                )
             };
         }
         if self.peek(0).is_some_and(|c| c.is_alphabetic() || c == '_') {
@@ -271,7 +282,11 @@ impl<'a> Lexer<'a> {
                     buf.push('}');
                 }
                 '}' => {
-                    return Err(self.err(self.line, self.col, "single '}' in string, use '}}' for a literal brace"));
+                    return Err(self.err(
+                        self.line,
+                        self.col,
+                        "single '}' in string, use '}}' for a literal brace",
+                    ));
                 }
                 '{' => {
                     if !buf.is_empty() {
@@ -437,10 +452,19 @@ mod tests {
 
     #[test]
     fn numbers() {
-        assert_eq!(kinds("42 1_000 0xff"), vec![Tok::Int(42), Tok::Int(1000), Tok::Int(255), Tok::Eof]);
-        assert_eq!(kinds("3.14 1.5e3 2e-2"), vec![Tok::Float(3.14), Tok::Float(1500.0), Tok::Float(0.02), Tok::Eof]);
+        assert_eq!(
+            kinds("42 1_000 0xff"),
+            vec![Tok::Int(42), Tok::Int(1000), Tok::Int(255), Tok::Eof]
+        );
+        assert_eq!(
+            kinds("3.14 1.5e3 2e-2"),
+            vec![Tok::Float(3.14), Tok::Float(1500.0), Tok::Float(0.02), Tok::Eof]
+        );
         assert_eq!(kinds("1..5"), vec![Tok::Int(1), Tok::DotDot, Tok::Int(5), Tok::Eof]);
-        assert_eq!(kinds("5.f"), vec![Tok::Int(5), Tok::Dot, Tok::Ident("f".into()), Tok::Eof]);
+        assert_eq!(
+            kinds("5.f"),
+            vec![Tok::Int(5), Tok::Dot, Tok::Ident("f".into()), Tok::Eof]
+        );
         assert!(err("3abc").contains("invalid number literal"));
         assert!(err("99999999999999999999").contains("too large"));
     }
@@ -448,14 +472,26 @@ mod tests {
     #[test]
     fn chinese_keywords_map_to_same_tokens() {
         assert_eq!(kinds("如果 真 否则 空"), kinds("if true else nil"));
-        assert_eq!(kinds("令 总和 = 0"), vec![Tok::Let, Tok::Ident("总和".into()), Tok::Eq, Tok::Int(0), Tok::Eof]);
+        assert_eq!(
+            kinds("令 总和 = 0"),
+            vec![Tok::Let, Tok::Ident("总和".into()), Tok::Eq, Tok::Int(0), Tok::Eof]
+        );
     }
 
     #[test]
     fn strings_and_interpolation() {
-        assert_eq!(kinds(r#""a\n\"b""#), vec![Tok::Str(vec![StrPart::Lit("a\n\"b".into())]), Tok::Eof]);
-        assert_eq!(kinds(r#""""#), vec![Tok::Str(vec![StrPart::Lit(String::new())]), Tok::Eof]);
-        assert_eq!(kinds(r#""{{x}}""#), vec![Tok::Str(vec![StrPart::Lit("{x}".into())]), Tok::Eof]);
+        assert_eq!(
+            kinds(r#""a\n\"b""#),
+            vec![Tok::Str(vec![StrPart::Lit("a\n\"b".into())]), Tok::Eof]
+        );
+        assert_eq!(
+            kinds(r#""""#),
+            vec![Tok::Str(vec![StrPart::Lit(String::new())]), Tok::Eof]
+        );
+        assert_eq!(
+            kinds(r#""{{x}}""#),
+            vec![Tok::Str(vec![StrPart::Lit("{x}".into())]), Tok::Eof]
+        );
         let toks = kinds(r#""n={n + 1}!""#);
         let Tok::Str(parts) = &toks[0] else { panic!() };
         assert_eq!(parts.len(), 3);
@@ -485,16 +521,31 @@ mod tests {
     fn newline_rules() {
         use Tok::*;
         // 连续空行折叠，开头的换行忽略
-        assert_eq!(kinds("\n\na\n\n\nb\n"), vec![Ident("a".into()), Newline, Ident("b".into()), Newline, Eof]);
+        assert_eq!(
+            kinds("\n\na\n\n\nb\n"),
+            vec![Ident("a".into()), Newline, Ident("b".into()), Newline, Eof]
+        );
         // 括号内忽略换行
-        assert_eq!(kinds("f(1,\n2)"), vec![Ident("f".into()), LParen, Int(1), Comma, Int(2), RParen, Eof]);
+        assert_eq!(
+            kinds("f(1,\n2)"),
+            vec![Ident("f".into()), LParen, Int(1), Comma, Int(2), RParen, Eof]
+        );
         // 行尾运算符延续
         assert_eq!(kinds("a +\nb"), vec![Ident("a".into()), Plus, Ident("b".into()), Eof]);
         // 下一行以 |> 或 . 开头时延续
-        assert_eq!(kinds("a\n  |> f\n"), vec![Ident("a".into()), Pipe, Ident("f".into()), Newline, Eof]);
-        assert_eq!(kinds("a\n # c\n .f\n"), vec![Ident("a".into()), Dot, Ident("f".into()), Newline, Eof]);
+        assert_eq!(
+            kinds("a\n  |> f\n"),
+            vec![Ident("a".into()), Pipe, Ident("f".into()), Newline, Eof]
+        );
+        assert_eq!(
+            kinds("a\n # c\n .f\n"),
+            vec![Ident("a".into()), Dot, Ident("f".into()), Newline, Eof]
+        );
         // 以 .. 开头的行（match 区间模式）不延续
-        assert_eq!(kinds("a\n..b"), vec![Ident("a".into()), Newline, DotDot, Ident("b".into()), Eof]);
+        assert_eq!(
+            kinds("a\n..b"),
+            vec![Ident("a".into()), Newline, DotDot, Ident("b".into()), Eof]
+        );
         // 括号内的花括号块里换行有意义
         assert_eq!(
             kinds("f(fn() {\na\nb\n})"),
@@ -518,7 +569,10 @@ mod tests {
 
     #[test]
     fn helpful_errors() {
-        assert_eq!(err("print（1）"), "[line 1:6] SyntaxError: full-width character '（', use '(' instead");
+        assert_eq!(
+            err("print（1）"),
+            "[line 1:6] SyntaxError: full-width character '（', use '(' instead"
+        );
         assert!(err("!x").contains("use 'not'"));
         assert!(err("a && b").contains("use 'and'"));
         assert!(err("'a'").contains("double quotes"));

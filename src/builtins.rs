@@ -30,7 +30,10 @@ impl Default for Io {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as u64)
             .unwrap_or(0x2545_f491_4f6c_dd1d);
-        Io { out: BufWriter::new(std::io::stdout()), rng: seed }
+        Io {
+            out: BufWriter::new(std::io::stdout()),
+            rng: seed,
+        }
     }
 }
 
@@ -165,7 +168,10 @@ fn num_arg(v: &Value, f: &str, pos: Pos) -> Result<f64> {
     match v {
         Value::Int(n) => Ok(*n as f64),
         Value::Float(x) => Ok(*x),
-        other => Err(type_err(pos, format!("{f}() expects a number, got {}", other.type_name()))),
+        other => Err(type_err(
+            pos,
+            format!("{f}() expects a number, got {}", other.type_name()),
+        )),
     }
 }
 
@@ -175,7 +181,10 @@ fn items(v: &Value, f: &str, pos: Pos) -> Result<Vec<Value>> {
         Value::Array(a) => Ok(a.borrow().clone()),
         Value::Range(r) => Ok((r.0..r.1).map(Value::Int).collect()),
         Value::Str(s) => Ok(s.chars().map(|c| Value::str(c.encode_utf8(&mut [0; 4]))).collect()),
-        other => Err(type_err(pos, format!("{f}() expects array, range or str, got {}", other.type_name()))),
+        other => Err(type_err(
+            pos,
+            format!("{f}() expects array, range or str, got {}", other.type_name()),
+        )),
     }
 }
 
@@ -183,7 +192,11 @@ fn float_to_int(x: f64, f: &str, pos: Pos) -> Result<i64> {
     if x.is_finite() && x >= i64::MIN as f64 && x < i64::MAX as f64 {
         Ok(x as i64)
     } else {
-        Err(err(ErrorKind::Value, pos, format!("{f}() cannot convert {} to int", crate::value::format_float(x))))
+        Err(err(
+            ErrorKind::Value,
+            pos,
+            format!("{f}() cannot convert {} to int", crate::value::format_float(x)),
+        ))
     }
 }
 
@@ -243,8 +256,13 @@ fn to_int(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value>
         Value::Int(n) => *n,
         Value::Float(x) => float_to_int(*x, "int", pos)?,
         Value::Bool(b) => *b as i64,
-        Value::Str(s) => parse_int_str(s)
-            .ok_or_else(|| err(ErrorKind::Value, pos, format!("invalid integer literal: {}", Value::Str(s.clone()).repr())))?,
+        Value::Str(s) => parse_int_str(s).ok_or_else(|| {
+            err(
+                ErrorKind::Value,
+                pos,
+                format!("invalid integer literal: {}", Value::Str(s.clone()).repr()),
+            )
+        })?,
         other => return Err(type_err(pos, format!("int() cannot convert {}", other.type_name()))),
     }))
 }
@@ -254,10 +272,13 @@ fn to_float(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Valu
         Value::Int(n) => *n as f64,
         Value::Float(x) => *x,
         Value::Bool(b) => *b as i64 as f64,
-        Value::Str(s) => s
-            .trim()
-            .parse::<f64>()
-            .map_err(|_| err(ErrorKind::Value, pos, format!("invalid float literal: {}", Value::Str(s.clone()).repr())))?,
+        Value::Str(s) => s.trim().parse::<f64>().map_err(|_| {
+            err(
+                ErrorKind::Value,
+                pos,
+                format!("invalid float literal: {}", Value::Str(s.clone()).repr()),
+            )
+        })?,
         other => return Err(type_err(pos, format!("float() cannot convert {}", other.type_name()))),
     }))
 }
@@ -295,7 +316,10 @@ fn len(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
 fn shallow_copy(v: &Value) -> Value {
     match v {
         Value::Array(a) => Value::array(a.borrow().clone()),
-        Value::Struct(inst) => Value::Struct(Rc::new(Instance { ty: inst.ty.clone(), fields: RefCell::new(inst.fields.borrow().clone()) })),
+        Value::Struct(inst) => Value::Struct(Rc::new(Instance {
+            ty: inst.ty.clone(),
+            fields: RefCell::new(inst.fields.borrow().clone()),
+        })),
         other => other.clone(),
     }
 }
@@ -333,7 +357,11 @@ fn insert(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value>
     let len = a.len();
     let k = if i < 0 { i + len as i64 } else { i };
     if k < 0 || k as usize > len {
-        return Err(err(ErrorKind::Index, pos, format!("insert index {i} out of range for array of length {len}")));
+        return Err(err(
+            ErrorKind::Index,
+            pos,
+            format!("insert index {i} out of range for array of length {len}"),
+        ));
     }
     a.insert(k as usize, x);
     Ok(Value::Nil)
@@ -345,7 +373,11 @@ fn remove(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value>
     let len = a.len();
     match norm_index(i, len) {
         Some(k) => Ok(a.remove(k)),
-        None => Err(err(ErrorKind::Index, pos, format!("index {i} out of range for array of length {len}"))),
+        None => Err(err(
+            ErrorKind::Index,
+            pos,
+            format!("index {i} out of range for array of length {len}"),
+        )),
     }
 }
 
@@ -358,15 +390,31 @@ fn contains(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Valu
         Value::Array(a) => a.borrow().iter().any(|v| values_equal(v, &args[1])),
         Value::Str(s) => s.contains(&**str_arg(&args[1], "contains", pos)?),
         Value::Range(r) => matches!(args[1], Value::Int(n) if n >= r.0 && n < r.1),
-        other => return Err(type_err(pos, format!("contains() expects array, str or range, got {}", other.type_name()))),
+        other => {
+            return Err(type_err(
+                pos,
+                format!("contains() expects array, str or range, got {}", other.type_name()),
+            ));
+        }
     }))
 }
 
 fn index_of(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     Ok(Value::Int(match &args[0] {
-        Value::Array(a) => a.borrow().iter().position(|v| values_equal(v, &args[1])).map_or(-1, |i| i as i64),
-        Value::Str(s) => s.find(&**str_arg(&args[1], "index_of", pos)?).map_or(-1, |b| char_index(s, b)),
-        other => return Err(type_err(pos, format!("index_of() expects array or str, got {}", other.type_name()))),
+        Value::Array(a) => a
+            .borrow()
+            .iter()
+            .position(|v| values_equal(v, &args[1]))
+            .map_or(-1, |i| i as i64),
+        Value::Str(s) => s
+            .find(&**str_arg(&args[1], "index_of", pos)?)
+            .map_or(-1, |b| char_index(s, b)),
+        other => {
+            return Err(type_err(
+                pos,
+                format!("index_of() expects array or str, got {}", other.type_name()),
+            ));
+        }
     }))
 }
 
@@ -374,7 +422,10 @@ fn reverse(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value
     match &args[0] {
         Value::Array(a) => Ok(Value::array(a.borrow().iter().rev().cloned().collect())),
         Value::Str(s) => Ok(Value::string(s.chars().rev().collect())),
-        other => Err(type_err(pos, format!("reverse() expects array or str, got {}", other.type_name()))),
+        other => Err(type_err(
+            pos,
+            format!("reverse() expects array or str, got {}", other.type_name()),
+        )),
     }
 }
 
@@ -461,7 +512,12 @@ fn extreme(args: Vec<Value>, f: &str, want: std::cmp::Ordering, pos: Pos) -> Res
         match compare(&x, &best) {
             Some(o) if o == want => best = x,
             Some(_) => {}
-            None => return Err(type_err(pos, format!("{f}() cannot compare {} and {}", x.type_name(), best.type_name()))),
+            None => {
+                return Err(type_err(
+                    pos,
+                    format!("{f}() cannot compare {} and {}", x.type_name(), best.type_name()),
+                ));
+            }
         }
     }
     Ok(best)
@@ -523,11 +579,17 @@ fn replace(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value
 }
 
 fn starts_with(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
-    Ok(Value::Bool(str_arg(&args[0], "starts_with", pos)?.starts_with(&**str_arg(&args[1], "starts_with", pos)?)))
+    Ok(Value::Bool(
+        str_arg(&args[0], "starts_with", pos)?.starts_with(&**str_arg(&args[1], "starts_with", pos)?),
+    ))
 }
 
 fn ends_with(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
-    Ok(Value::Bool(str_arg(&args[0], "ends_with", pos)?.ends_with(&**str_arg(&args[1], "ends_with", pos)?)))
+    Ok(Value::Bool(str_arg(&args[0], "ends_with", pos)?.ends_with(&**str_arg(
+        &args[1],
+        "ends_with",
+        pos,
+    )?)))
 }
 
 fn pad(args: &[Value], f: &str, left: bool, pos: Pos) -> Result<Value> {
@@ -540,7 +602,13 @@ fn pad(args: &[Value], f: &str, left: bool, pos: Pos) -> Result<Value> {
             let mut chars = c.chars();
             match (chars.next(), chars.next()) {
                 (Some(ch), None) => ch,
-                _ => return Err(err(ErrorKind::Value, pos, format!("{f}() fill must be a single character"))),
+                _ => {
+                    return Err(err(
+                        ErrorKind::Value,
+                        pos,
+                        format!("{f}() fill must be a single character"),
+                    ));
+                }
             }
         }
     };
@@ -575,16 +643,28 @@ fn chr(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
         .ok()
         .and_then(char::from_u32)
         .map(|c| Value::str(c.encode_utf8(&mut [0; 4])))
-        .ok_or_else(|| err(ErrorKind::Value, pos, format!("chr() argument {n} is not a valid code point")))
+        .ok_or_else(|| {
+            err(
+                ErrorKind::Value,
+                pos,
+                format!("chr() argument {n} is not a valid code point"),
+            )
+        })
 }
 
 // ---------- 数学 ----------
 
 fn abs(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     match &args[0] {
-        Value::Int(n) => n.checked_abs().map(Value::Int).ok_or_else(|| err(ErrorKind::Runtime, pos, "integer overflow")),
+        Value::Int(n) => n
+            .checked_abs()
+            .map(Value::Int)
+            .ok_or_else(|| err(ErrorKind::Runtime, pos, "integer overflow")),
         Value::Float(x) => Ok(Value::Float(x.abs())),
-        other => Err(type_err(pos, format!("abs() expects a number, got {}", other.type_name()))),
+        other => Err(type_err(
+            pos,
+            format!("abs() expects a number, got {}", other.type_name()),
+        )),
     }
 }
 
@@ -600,7 +680,10 @@ fn rounding(args: &[Value], f: &str, op: fn(f64) -> f64, pos: Pos) -> Result<Val
     match &args[0] {
         Value::Int(n) => Ok(Value::Int(*n)),
         Value::Float(x) => Ok(Value::Int(float_to_int(op(*x), f, pos)?)),
-        other => Err(type_err(pos, format!("{f}() expects a number, got {}", other.type_name()))),
+        other => Err(type_err(
+            pos,
+            format!("{f}() expects a number, got {}", other.type_name()),
+        )),
     }
 }
 
@@ -622,7 +705,11 @@ fn random(rt: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value
     let a = int_arg(&args[0], "random", pos)?;
     let b = int_arg(&args[1], "random", pos)?;
     if a > b {
-        return Err(err(ErrorKind::Value, pos, format!("random() lower bound {a} is greater than upper bound {b}")));
+        return Err(err(
+            ErrorKind::Value,
+            pos,
+            format!("random() lower bound {a} is greater than upper bound {b}"),
+        ));
     }
     let span = (b as i128 - a as i128 + 1) as u128;
     let r = (rt.io().next_u64() as u128 % span) as i128;
@@ -646,7 +733,9 @@ fn assert(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value>
     if ops::expect_bool(&args[0], pos, "assert() condition")? {
         return Ok(Value::Nil);
     }
-    let msg = args.get(1).map_or_else(|| "assertion failed".to_string(), Value::to_display);
+    let msg = args
+        .get(1)
+        .map_or_else(|| "assertion failed".to_string(), Value::to_display);
     Err(err(ErrorKind::Assertion, pos, msg))
 }
 
@@ -654,7 +743,11 @@ fn assert_eq(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Val
     if values_equal(&args[0], &args[1]) {
         return Ok(Value::Nil);
     }
-    Err(err(ErrorKind::Assertion, pos, format!("{} != {}", args[0].repr(), args[1].repr())))
+    Err(err(
+        ErrorKind::Assertion,
+        pos,
+        format!("{} != {}", args[0].repr(), args[1].repr()),
+    ))
 }
 
 fn error(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {

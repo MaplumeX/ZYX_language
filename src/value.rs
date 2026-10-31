@@ -58,7 +58,11 @@ impl StructType {
     }
 
     pub fn method(&self, name: &str) -> Option<Rc<Closure>> {
-        self.methods.borrow().iter().find(|(n, _)| &**n == name).map(|(_, m)| m.clone())
+        self.methods
+            .borrow()
+            .iter()
+            .find(|(n, _)| &**n == name)
+            .map(|(_, m)| m.clone())
     }
 }
 

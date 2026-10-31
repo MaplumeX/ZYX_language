@@ -56,7 +56,10 @@ fn new_cell(v: Value) -> Cell {
 /// 覆盖一个值。旧值不持有堆资源时直接写入，省去一次（未内联的）析构调用。
 #[inline(always)]
 fn overwrite(dst: &mut Value, v: Value) {
-    if matches!(dst, Value::Nil | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Builtin(_) | Value::Undef) {
+    if matches!(
+        dst,
+        Value::Nil | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Builtin(_) | Value::Undef
+    ) {
         // SAFETY: 旧值没有需要析构的内容，跳过析构不会泄漏
         unsafe { std::ptr::write(dst, v) }
     } else {
@@ -67,7 +70,10 @@ fn overwrite(dst: &mut Value, v: Value) {
 /// 丢弃一个值，标量直接忽略。
 #[inline(always)]
 fn discard(v: Value) {
-    if matches!(v, Value::Nil | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Builtin(_) | Value::Undef) {
+    if matches!(
+        v,
+        Value::Nil | Value::Bool(_) | Value::Int(_) | Value::Float(_) | Value::Builtin(_) | Value::Undef
+    ) {
         std::mem::forget(v);
     }
 }
@@ -142,7 +148,11 @@ fn cached_field(inst: &crate::value::Instance, name: &str, cache: &std::cell::Ce
 }
 
 fn uninit(name: &str, pos: Pos) -> crate::error::ZyxError {
-    err(ErrorKind::Name, pos, format!("variable '{name}' is used before it is initialized"))
+    err(
+        ErrorKind::Name,
+        pos,
+        format!("variable '{name}' is used before it is initialized"),
+    )
 }
 
 impl Vm {
@@ -164,8 +174,13 @@ impl Vm {
     }
 
     pub fn run(&mut self, program: &Program) -> Result<()> {
-        let main = Rc::new(Closure { proto: program.main.clone(), upvals: Vec::new() });
-        let r = self.push_frame(main, 0, 0, Pos { line: 1, col: 1 }).and_then(|_| self.execute(0));
+        let main = Rc::new(Closure {
+            proto: program.main.clone(),
+            upvals: Vec::new(),
+        });
+        let r = self
+            .push_frame(main, 0, 0, Pos { line: 1, col: 1 })
+            .and_then(|_| self.execute(0));
         self.io.flush();
         r.map(|_| ())
     }
@@ -182,11 +197,22 @@ impl Vm {
         }
         let chunk: *const Chunk = &*self.chunks[p.id];
         self.stack.resize(base + chunk_ref(chunk).n_slots, Value::Nil);
-        let mut cells = if p.n_cells > 0 { vec![self.placeholder.clone(); p.n_cells] } else { Vec::new() };
+        let mut cells = if p.n_cells > 0 {
+            vec![self.placeholder.clone(); p.n_cells]
+        } else {
+            Vec::new()
+        };
         for &(i, c) in &p.param_cells {
             cells[c as usize] = new_cell(self.stack[base + i].clone());
         }
-        self.frames.push(Frame { closure: clo, chunk, ip: 0, base, ret_to, cells });
+        self.frames.push(Frame {
+            closure: clo,
+            chunk,
+            ip: 0,
+            base,
+            ret_to,
+            cells,
+        });
         Ok(())
     }
 
@@ -403,7 +429,9 @@ impl Vm {
                     *self.frames.last().expect("frame").cells[c as usize].borrow_mut() = v;
                 }
                 Op::GetUpval(u, n) => {
-                    let v = self.frames.last().expect("frame").closure.upvals[u as usize].borrow().clone();
+                    let v = self.frames.last().expect("frame").closure.upvals[u as usize]
+                        .borrow()
+                        .clone();
                     if let Value::Undef = v {
                         return Err(uninit(&chunk.names[n as usize], pos!()));
                     }
@@ -481,7 +509,12 @@ impl Vm {
                 Op::JumpIfFalse(target, ctx) => match self.pop() {
                     Value::Bool(true) => {}
                     Value::Bool(false) => ip = target as usize,
-                    other => return Err(type_err(pos!(), format!("{} must be bool, got {}", ctx.what(), other.type_name()))),
+                    other => {
+                        return Err(type_err(
+                            pos!(),
+                            format!("{} must be bool, got {}", ctx.what(), other.type_name()),
+                        ));
+                    }
                 },
                 Op::Jump(target) => ip = target as usize,
                 Op::Range(inclusive) => {
@@ -517,7 +550,8 @@ impl Vm {
                     let o = self.stack.last_mut().expect("operand");
                     let name = &chunk.names[n as usize];
                     let fast = match &*o {
-                        Value::Struct(inst) => cached_field(inst, name, &chunk.field_caches[k as usize]).map(|i| inst.fields.borrow()[i].clone()),
+                        Value::Struct(inst) => cached_field(inst, name, &chunk.field_caches[k as usize])
+                            .map(|i| inst.fields.borrow()[i].clone()),
                         _ => None,
                     };
                     *o = match fast {
@@ -530,7 +564,9 @@ impl Vm {
                     let o = self.pop();
                     let name = &chunk.names[n as usize];
                     match &o {
-                        Value::Struct(inst) if let Some(i) = cached_field(inst, name, &chunk.field_caches[k as usize]) => {
+                        Value::Struct(inst)
+                            if let Some(i) = cached_field(inst, name, &chunk.field_caches[k as usize]) =>
+                        {
                             inst.fields.borrow_mut()[i] = v;
                         }
                         _ => ops::field_set(&o, name, v, pos!())?,
@@ -573,7 +609,9 @@ impl Vm {
                         None => match &desc.fallback {
                             Fallback::Var(var, n) => self.read_var(*var, &chunk.names[*n as usize], base, pos!())?,
                             Fallback::Const(v) => v.clone(),
-                            Fallback::None => return Err(ops::no_method_error(&self.stack[obj_at], &desc.name, pos!())),
+                            Fallback::None => {
+                                return Err(ops::no_method_error(&self.stack[obj_at], &desc.name, pos!()));
+                            }
                         },
                     };
                     save_ip!();
@@ -607,13 +645,19 @@ impl Vm {
                 Op::Impl(idx) => {
                     let target = self.pop();
                     let desc = &chunk.impls[idx as usize];
-                    let methods = desc.methods.iter().map(|(n, i)| (n.clone(), self.make_closure(*i))).collect();
+                    let methods = desc
+                        .methods
+                        .iter()
+                        .map(|(n, i)| (n.clone(), self.make_closure(*i)))
+                        .collect();
                     ops::add_methods(&target, &desc.name, methods, pos!())?;
                 }
                 Op::IterPrep(h) => {
                     let it = match self.pop() {
                         v @ (Value::Range(..) | Value::Array(_)) => v,
-                        Value::Str(s) => Value::array(s.chars().map(|c| Value::str(c.encode_utf8(&mut [0; 4]))).collect()),
+                        Value::Str(s) => {
+                            Value::array(s.chars().map(|c| Value::str(c.encode_utf8(&mut [0; 4]))).collect())
+                        }
                         other => return Err(type_err(pos!(), format!("cannot iterate over {}", other.type_name()))),
                     };
                     self.stack[base + h as usize] = it;
@@ -621,7 +665,9 @@ impl Vm {
                 }
                 Op::ForNext(h, exit, with_index) => {
                     let h = base + h as usize;
-                    let Value::Int(i) = self.stack[h + 1] else { unreachable!("loop counter") };
+                    let Value::Int(i) = self.stack[h + 1] else {
+                        unreachable!("loop counter")
+                    };
                     let item = match &self.stack[h] {
                         Value::Range(r) => (r.0 + i < r.1).then(|| Value::Int(r.0 + i)),
                         Value::Array(a) => a.borrow().get(i as usize).cloned(),
@@ -646,7 +692,11 @@ impl Vm {
                 }
                 Op::NoMatch(h) => {
                     let v = &self.stack[base + h as usize];
-                    return Err(err(ErrorKind::Runtime, pos!(), format!("no match arm for value {}", v.repr())));
+                    return Err(err(
+                        ErrorKind::Runtime,
+                        pos!(),
+                        format!("no match arm for value {}", v.repr()),
+                    ));
                 }
                 Op::BinLocal(op, s) => {
                     let top = self.stack.len() - 1;
@@ -707,7 +757,12 @@ impl Vm {
                     discard(a);
                 }
                 Op::JumpIfNotLL(op, a, b, target) => {
-                    if !cmp(op, self.slot(base + a as usize), self.slot(base + b as usize), || pos!())? {
+                    if !cmp(
+                        op,
+                        self.slot(base + a as usize),
+                        self.slot(base + b as usize),
+                        || pos!(),
+                    )? {
                         ip = target as usize;
                     }
                 }
@@ -747,7 +802,9 @@ impl Vm {
                     let obj = &self.stack[base + s as usize];
                     let name = &chunk.names[n as usize];
                     let v = match obj {
-                        Value::Struct(inst) if let Some(i) = cached_field(inst, name, &chunk.field_caches[k as usize]) => {
+                        Value::Struct(inst)
+                            if let Some(i) = cached_field(inst, name, &chunk.field_caches[k as usize]) =>
+                        {
                             inst.fields.borrow()[i].clone()
                         }
                         _ => ops::field_get(obj, name, pos!())?,
@@ -759,7 +816,9 @@ impl Vm {
                     let obj = &self.stack[base + s as usize];
                     let name = &chunk.names[n as usize];
                     match obj {
-                        Value::Struct(inst) if let Some(i) = cached_field(inst, name, &chunk.field_caches[k as usize]) => {
+                        Value::Struct(inst)
+                            if let Some(i) = cached_field(inst, name, &chunk.field_caches[k as usize]) =>
+                        {
                             inst.fields.borrow_mut()[i] = v;
                         }
                         _ => ops::field_set(obj, name, v, pos!())?,

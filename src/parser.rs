@@ -23,7 +23,12 @@ struct Parser {
 
 impl Parser {
     fn new(toks: Vec<Token>) -> Self {
-        Parser { toks, i: 0, loop_depth: 0, fn_depth: 0 }
+        Parser {
+            toks,
+            i: 0,
+            loop_depth: 0,
+            fn_depth: 0,
+        }
     }
 
     // ---------- 基础操作 ----------
@@ -39,7 +44,10 @@ impl Parser {
 
     fn pos(&self) -> Pos {
         let t = &self.toks[self.i];
-        Pos { line: t.line, col: t.col }
+        Pos {
+            line: t.line,
+            col: t.col,
+        }
     }
 
     fn advance(&mut self) -> Token {
@@ -76,7 +84,11 @@ impl Parser {
         if self.at(tok) {
             Ok(self.advance())
         } else {
-            Err(self.err_here(format!("expected {} {context}, found {}", tok.describe(), self.peek().describe())))
+            Err(self.err_here(format!(
+                "expected {} {context}, found {}",
+                tok.describe(),
+                self.peek().describe()
+            )))
         }
     }
 
@@ -183,7 +195,11 @@ impl Parser {
                 if self.loop_depth == 0 {
                     return Err(Self::err_at(pos, format!("{} outside of loop", tok.tok.describe())));
                 }
-                if tok.tok == Tok::Break { StmtKind::Break } else { StmtKind::Continue }
+                if tok.tok == Tok::Break {
+                    StmtKind::Break
+                } else {
+                    StmtKind::Continue
+                }
             }
             Tok::Return => {
                 self.advance();
@@ -214,7 +230,10 @@ impl Parser {
         };
         let op_pos = self.pos();
         self.advance();
-        if !matches!(target.kind, ExprKind::Ident(_) | ExprKind::Index(..) | ExprKind::Field(..)) {
+        if !matches!(
+            target.kind,
+            ExprKind::Ident(_) | ExprKind::Index(..) | ExprKind::Field(..)
+        ) {
             return Err(Self::err_at(op_pos, "invalid assignment target"));
         }
         let value = self.expr()?;
@@ -245,7 +264,13 @@ impl Parser {
         self.fn_depth += 1;
         let body = if lambda_arrow {
             let pos = self.pos();
-            self.expr().map(|e| Block { stmts: vec![Stmt { pos: e.pos, kind: StmtKind::Expr(e) }], pos })
+            self.expr().map(|e| Block {
+                stmts: vec![Stmt {
+                    pos: e.pos,
+                    kind: StmtKind::Expr(e),
+                }],
+                pos,
+            })
         } else {
             self.block()
         };
@@ -260,7 +285,12 @@ impl Parser {
         let name = self.ident("after 'fn'")?;
         let params = self.params()?;
         let body = self.fn_body(false)?;
-        Ok(Rc::new(FnDecl { name: Some(name), params, body, pos }))
+        Ok(Rc::new(FnDecl {
+            name: Some(name),
+            params,
+            body,
+            pos,
+        }))
     }
 
     fn struct_decl(&mut self) -> Result<Rc<StructDecl>> {
@@ -279,7 +309,10 @@ impl Parser {
             let default = if self.eat(&Tok::Eq) { Some(self.expr()?) } else { None };
             fields.push((field, default));
             if !self.eat(&Tok::Comma) && !matches!(self.peek(), Tok::Newline | Tok::RBrace) {
-                return Err(self.err_here(format!("expected ',' or '}}' in struct fields, found {}", self.peek().describe())));
+                return Err(self.err_here(format!(
+                    "expected ',' or '}}' in struct fields, found {}",
+                    self.peek().describe()
+                )));
             }
             self.skip_newlines();
         }
@@ -295,7 +328,10 @@ impl Parser {
         self.skip_newlines();
         while !self.at(&Tok::RBrace) {
             if !(self.at(&Tok::Fn) && matches!(self.peek_at(1), Tok::Ident(_))) {
-                return Err(self.err_here(format!("expected method declaration in impl, found {}", self.peek().describe())));
+                return Err(self.err_here(format!(
+                    "expected method declaration in impl, found {}",
+                    self.peek().describe()
+                )));
             }
             methods.push(self.fn_decl()?);
             self.end_stmt()?;
@@ -328,14 +364,28 @@ impl Parser {
     fn desugar_pipe(lhs: Expr, rhs: Expr, pos: Pos) -> Result<Expr> {
         let mut rhs_pos = rhs.pos;
         let kind = match rhs.kind {
-            ExprKind::Ident(name) => ExprKind::MethodCall { obj: Box::new(lhs), name, args: Vec::new() },
+            ExprKind::Ident(name) => ExprKind::MethodCall {
+                obj: Box::new(lhs),
+                name,
+                args: Vec::new(),
+            },
             ExprKind::Call { callee, args } if matches!(callee.kind, ExprKind::Ident(_)) => {
                 // 报错位置指向函数名
                 rhs_pos = callee.pos;
-                let ExprKind::Ident(name) = callee.kind else { unreachable!() };
-                ExprKind::MethodCall { obj: Box::new(lhs), name, args }
+                let ExprKind::Ident(name) = callee.kind else {
+                    unreachable!()
+                };
+                ExprKind::MethodCall {
+                    obj: Box::new(lhs),
+                    name,
+                    args,
+                }
             }
-            ExprKind::Field(obj, name) => ExprKind::MethodCall { obj, name, args: vec![Arg { name: None, value: lhs }] },
+            ExprKind::Field(obj, name) => ExprKind::MethodCall {
+                obj,
+                name,
+                args: vec![Arg { name: None, value: lhs }],
+            },
             ExprKind::Call { callee, mut args } => {
                 args.insert(0, Arg { name: None, value: lhs });
                 ExprKind::Call { callee, args }
@@ -350,7 +400,10 @@ impl Parser {
     }
 
     fn binary(op: BinOp, lhs: Expr, rhs: Expr, pos: Pos) -> Expr {
-        Expr { kind: ExprKind::Binary(op, Box::new(lhs), Box::new(rhs)), pos }
+        Expr {
+            kind: ExprKind::Binary(op, Box::new(lhs), Box::new(rhs)),
+            pos,
+        }
     }
 
     fn or_expr(&mut self) -> Result<Expr> {
@@ -402,7 +455,9 @@ impl Parser {
 
     fn equality(&mut self) -> Result<Expr> {
         let lhs = self.comparison()?;
-        let Some(op) = Self::equality_op(self.peek()) else { return Ok(lhs) };
+        let Some(op) = Self::equality_op(self.peek()) else {
+            return Ok(lhs);
+        };
         let pos = self.pos();
         self.advance();
         let rhs = self.comparison()?;
@@ -413,7 +468,9 @@ impl Parser {
 
     fn comparison(&mut self) -> Result<Expr> {
         let lhs = self.pipe()?;
-        let Some(op) = Self::comparison_op(self.peek()) else { return Ok(lhs) };
+        let Some(op) = Self::comparison_op(self.peek()) else {
+            return Ok(lhs);
+        };
         let pos = self.pos();
         self.advance();
         let rhs = self.pipe()?;
@@ -434,7 +491,14 @@ impl Parser {
         if matches!(self.peek(), Tok::DotDot | Tok::DotDotEq) {
             return Err(self.err_here("range operators cannot be chained"));
         }
-        Ok(Expr { kind: ExprKind::Range { start: Box::new(start), end: Box::new(end), inclusive }, pos })
+        Ok(Expr {
+            kind: ExprKind::Range {
+                start: Box::new(start),
+                end: Box::new(end),
+                inclusive,
+            },
+            pos,
+        })
     }
 
     fn additive(&mut self) -> Result<Expr> {
@@ -477,7 +541,10 @@ impl Parser {
         let pos = self.pos();
         self.advance();
         let operand = self.unary()?;
-        Ok(Expr { kind: ExprKind::Unary(op, Box::new(operand)), pos })
+        Ok(Expr {
+            kind: ExprKind::Unary(op, Box::new(operand)),
+            pos,
+        })
     }
 
     fn power(&mut self) -> Result<Expr> {
@@ -498,22 +565,41 @@ impl Parser {
             match self.peek() {
                 Tok::LParen => {
                     let args = self.args()?;
-                    e = Expr { kind: ExprKind::Call { callee: Box::new(e), args }, pos };
+                    e = Expr {
+                        kind: ExprKind::Call {
+                            callee: Box::new(e),
+                            args,
+                        },
+                        pos,
+                    };
                 }
                 Tok::LBracket => {
                     self.advance();
                     let index = self.expr()?;
                     self.expect(&Tok::RBracket, "after index")?;
-                    e = Expr { kind: ExprKind::Index(Box::new(e), Box::new(index)), pos };
+                    e = Expr {
+                        kind: ExprKind::Index(Box::new(e), Box::new(index)),
+                        pos,
+                    };
                 }
                 Tok::Dot => {
                     self.advance();
                     let name = self.ident("after '.'")?;
                     if self.at(&Tok::LParen) {
                         let args = self.args()?;
-                        e = Expr { kind: ExprKind::MethodCall { obj: Box::new(e), name, args }, pos };
+                        e = Expr {
+                            kind: ExprKind::MethodCall {
+                                obj: Box::new(e),
+                                name,
+                                args,
+                            },
+                            pos,
+                        };
                     } else {
-                        e = Expr { kind: ExprKind::Field(Box::new(e), name), pos };
+                        e = Expr {
+                            kind: ExprKind::Field(Box::new(e), name),
+                            pos,
+                        };
                     }
                 }
                 _ => return Ok(e),
@@ -611,7 +697,12 @@ impl Parser {
                 let params = self.params()?;
                 let arrow = self.eat(&Tok::FatArrow);
                 let body = self.fn_body(arrow)?;
-                ExprKind::Lambda(Rc::new(FnDecl { name: None, params, body, pos }))
+                ExprKind::Lambda(Rc::new(FnDecl {
+                    name: None,
+                    params,
+                    body,
+                    pos,
+                }))
             }
             Tok::If => return self.if_expr(),
             Tok::Match => return self.match_expr(),
@@ -663,12 +754,22 @@ impl Parser {
                 Some(Box::new(self.if_expr()?))
             } else {
                 let bpos = self.pos();
-                Some(Box::new(Expr { kind: ExprKind::Block(self.block()?), pos: bpos }))
+                Some(Box::new(Expr {
+                    kind: ExprKind::Block(self.block()?),
+                    pos: bpos,
+                }))
             }
         } else {
             None
         };
-        Ok(Expr { kind: ExprKind::If { cond: Box::new(cond), then, else_ }, pos })
+        Ok(Expr {
+            kind: ExprKind::If {
+                cond: Box::new(cond),
+                then,
+                else_,
+            },
+            pos,
+        })
     }
 
     fn match_expr(&mut self) -> Result<Expr> {
@@ -688,12 +789,21 @@ impl Parser {
             let body = self.expr()?;
             arms.push(Arm { pattern, guard, body });
             if !self.eat(&Tok::Comma) && !matches!(self.peek(), Tok::Newline | Tok::Semi | Tok::RBrace) {
-                return Err(self.err_here(format!("expected ',' or new line after match arm, found {}", self.peek().describe())));
+                return Err(self.err_here(format!(
+                    "expected ',' or new line after match arm, found {}",
+                    self.peek().describe()
+                )));
             }
             self.skip_newlines();
         }
         self.advance();
-        Ok(Expr { kind: ExprKind::Match { subject: Box::new(subject), arms }, pos })
+        Ok(Expr {
+            kind: ExprKind::Match {
+                subject: Box::new(subject),
+                arms,
+            },
+            pos,
+        })
     }
 
     // ---------- 模式 ----------
@@ -727,12 +837,18 @@ impl Parser {
             Tok::DotDot | Tok::DotDotEq => {
                 let inclusive = self.advance().tok == Tok::DotDotEq;
                 let hi = self.pattern_int()?;
-                Ok(Pattern::Range { lo: None, hi: Some(hi), inclusive })
+                Ok(Pattern::Range {
+                    lo: None,
+                    hi: Some(hi),
+                    inclusive,
+                })
             }
             Tok::Minus | Tok::Int(_) => {
                 if self.at(&Tok::Minus) && matches!(self.peek_at(1), Tok::Float(_)) {
                     self.advance();
-                    let Tok::Float(x) = self.advance().tok else { unreachable!() };
+                    let Tok::Float(x) = self.advance().tok else {
+                        unreachable!()
+                    };
                     return Ok(Pattern::Float(-x));
                 }
                 let lo = self.pattern_int()?;
@@ -740,12 +856,24 @@ impl Parser {
                     Tok::DotDotEq => {
                         self.advance();
                         let hi = self.pattern_int()?;
-                        Ok(Pattern::Range { lo: Some(lo), hi: Some(hi), inclusive: true })
+                        Ok(Pattern::Range {
+                            lo: Some(lo),
+                            hi: Some(hi),
+                            inclusive: true,
+                        })
                     }
                     Tok::DotDot => {
                         self.advance();
-                        let hi = if matches!(self.peek(), Tok::Int(_) | Tok::Minus) { Some(self.pattern_int()?) } else { None };
-                        Ok(Pattern::Range { lo: Some(lo), hi, inclusive: false })
+                        let hi = if matches!(self.peek(), Tok::Int(_) | Tok::Minus) {
+                            Some(self.pattern_int()?)
+                        } else {
+                            None
+                        };
+                        Ok(Pattern::Range {
+                            lo: Some(lo),
+                            hi,
+                            inclusive: false,
+                        })
                     }
                     _ => Ok(Pattern::Int(lo)),
                 }
@@ -776,7 +904,11 @@ impl Parser {
             }
             Tok::Ident(name) => {
                 self.advance();
-                Ok(if name == "_" { Pattern::Wildcard } else { Pattern::Bind(name) })
+                Ok(if name == "_" {
+                    Pattern::Wildcard
+                } else {
+                    Pattern::Bind(name)
+                })
             }
             other => Err(self.err_here(format!("expected pattern, found {}", other.describe()))),
         }
@@ -831,7 +963,10 @@ mod tests {
         assert_eq!(ast("a + b |> f()"), "(method (+ a b) f)");
         assert_eq!(ast("1..9 |> f()"), "(method (.. 1 9) f)");
         assert_eq!(ast("a and b |> f()"), "(and a (method b f))");
-        assert_eq!(ast("xs\n  |> map(fn(x) => x * 2)\n  |> sum()"), "(method (method xs map (fn (x) (block (* x 2)))) sum)");
+        assert_eq!(
+            ast("xs\n  |> map(fn(x) => x * 2)\n  |> sum()"),
+            "(method (method xs map (fn (x) (block (* x 2)))) sum)"
+        );
     }
 
     #[test]
@@ -849,7 +984,10 @@ mod tests {
         assert_eq!(ast("fn add(a, b) { a + b }"), "(fn add (a b) (block (+ a b)))");
         assert_eq!(ast("fn f() { return }"), "(fn f () (block (return)))");
         assert_eq!(ast("let d = fn(x) => x * 2"), "(let d (fn (x) (block (* x 2))))");
-        assert_eq!(ast("fn mk() {\n  let n = 0\n  fn() { n += 1; n }\n}"), "(fn mk () (block (let n 0) (fn () (block (+= n 1) n))))");
+        assert_eq!(
+            ast("fn mk() {\n  let n = 0\n  fn() { n += 1; n }\n}"),
+            "(fn mk () (block (let n 0) (fn () (block (+= n 1) n))))"
+        );
     }
 
     #[test]
@@ -864,11 +1002,16 @@ mod tests {
 
     #[test]
     fn if_and_match() {
-        assert_eq!(ast("if a { 1 } else if b { 2 } else { 3 }"), "(if a (block 1) (if b (block 2) (block 3)))");
+        assert_eq!(
+            ast("if a { 1 } else if b { 2 } else { 3 }"),
+            "(if a (block 1) (if b (block 2) (block 3)))"
+        );
         assert_eq!(ast("if a {\n  1\n}\nelse {\n  2\n}"), "(if a (block 1) (block 2))");
         assert_eq!(ast("if a { 1 }\nx"), "(if a (block 1))\nx");
         assert_eq!(
-            ast("match s {\n  100 => \"a\",\n  90..100 => \"b\"\n  0 | 1 => \"c\",\n  n if n < 0 => \"d\",\n  ..=-5 => \"e\",\n  60.. => \"f\",\n  _ => { \"g\" },\n}"),
+            ast(
+                "match s {\n  100 => \"a\",\n  90..100 => \"b\"\n  0 | 1 => \"c\",\n  n if n < 0 => \"d\",\n  ..=-5 => \"e\",\n  60.. => \"f\",\n  _ => { \"g\" },\n}"
+            ),
             "(match s (arm 100 \"a\") (arm 90..100 \"b\") (arm (| 0 1) \"c\") (arm n (if (< n 0)) \"d\") (arm ..=-5 \"e\") (arm 60.. \"f\") (arm _ (block \"g\")))"
         );
     }
@@ -877,12 +1020,18 @@ mod tests {
     fn interpolation() {
         assert_eq!(ast("\"a{x + 1}b\""), "(interp \"a\" (+ x 1) \"b\")");
         assert_eq!(ast("\"{p.name}\""), "(interp (field p name))");
-        assert_eq!(ast("while true { \"{ if a { break } }\" }"), "(while true (block (interp (if a (block (break))))))");
+        assert_eq!(
+            ast("while true { \"{ if a { break } }\" }"),
+            "(while true (block (interp (if a (block (break))))))"
+        );
     }
 
     #[test]
     fn chinese_keywords() {
-        assert_eq!(ast("函数 f(n) { 如果 n < 2 { 返回 n } }"), ast("fn f(n) { if n < 2 { return n } }"));
+        assert_eq!(
+            ast("函数 f(n) { 如果 n < 2 { 返回 n } }"),
+            ast("fn f(n) { if n < 2 { return n } }")
+        );
         assert_eq!(ast("对于 i 在 0..3 { 跳出 }"), "(for i (.. 0 3) (block (break)))");
     }
 
@@ -890,16 +1039,40 @@ mod tests {
     fn syntax_errors() {
         assert_eq!(err("break"), "[line 1:1] SyntaxError: 'break' outside of loop");
         assert_eq!(err("return 1"), "[line 1:1] SyntaxError: 'return' outside of function");
-        assert_eq!(err("while true { let f = fn() { break } }"), "[line 1:29] SyntaxError: 'break' outside of loop");
-        assert_eq!(err("a < b < c"), "[line 1:7] SyntaxError: comparison operators cannot be chained, use 'and'");
+        assert_eq!(
+            err("while true { let f = fn() { break } }"),
+            "[line 1:29] SyntaxError: 'break' outside of loop"
+        );
+        assert_eq!(
+            err("a < b < c"),
+            "[line 1:7] SyntaxError: comparison operators cannot be chained, use 'and'"
+        );
         assert_eq!(err("f() = 1"), "[line 1:5] SyntaxError: invalid assignment target");
-        assert_eq!(err("let x = 1 2"), "[line 1:11] SyntaxError: expected end of statement, found number '2'");
+        assert_eq!(
+            err("let x = 1 2"),
+            "[line 1:11] SyntaxError: expected end of statement, found number '2'"
+        );
         assert_eq!(err("fn f(a, a) {}"), "[line 1:9] SyntaxError: duplicate parameter 'a'");
-        assert_eq!(err("P(x: 1, 2)"), "[line 1:9] SyntaxError: cannot mix positional and named arguments");
-        assert_eq!(err("x |> 1"), "[line 1:3] SyntaxError: right side of '|>' must be a function name or call");
-        assert_eq!(err("if x {\n  1\n"), "[line 1:6] SyntaxError: unclosed '{', expected '}'");
-        assert_eq!(err("let = 1"), "[line 1:5] SyntaxError: expected identifier after 'let', found '='");
-        assert_eq!(err("\"{1 2}\""), "[line 1:5] SyntaxError: unexpected number '2' in interpolation");
+        assert_eq!(
+            err("P(x: 1, 2)"),
+            "[line 1:9] SyntaxError: cannot mix positional and named arguments"
+        );
+        assert_eq!(
+            err("x |> 1"),
+            "[line 1:3] SyntaxError: right side of '|>' must be a function name or call"
+        );
+        assert_eq!(
+            err("if x {\n  1\n"),
+            "[line 1:6] SyntaxError: unclosed '{', expected '}'"
+        );
+        assert_eq!(
+            err("let = 1"),
+            "[line 1:5] SyntaxError: expected identifier after 'let', found '='"
+        );
+        assert_eq!(
+            err("\"{1 2}\""),
+            "[line 1:5] SyntaxError: unexpected number '2' in interpolation"
+        );
         assert_eq!(err("}"), "[line 1:1] SyntaxError: unexpected '}'");
     }
 }

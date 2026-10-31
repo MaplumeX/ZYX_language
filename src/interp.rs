@@ -61,7 +61,12 @@ fn into_error(c: Ctrl) -> ZyxError {
     match c {
         Ctrl::Error(e) => *e,
         // break / continue / return 不会越过函数边界（语法分析已检查）
-        _ => ZyxError::new(ErrorKind::Runtime, 0, 0, "internal error: control flow escaped a function"),
+        _ => ZyxError::new(
+            ErrorKind::Runtime,
+            0,
+            0,
+            "internal error: control flow escaped a function",
+        ),
     }
 }
 
@@ -84,7 +89,11 @@ impl Interp {
     pub fn run(&mut self, program: &Program) -> Result<()> {
         let main = &program.main;
         self.stack.resize(main.n_locals, Value::Nil);
-        let mut frame = Frame { base: 0, cells: vec![self.placeholder.clone(); main.n_cells], upvals: &[] };
+        let mut frame = Frame {
+            base: 0,
+            cells: vec![self.placeholder.clone(); main.n_cells],
+            upvals: &[],
+        };
         let r = self.exec_block(&main.body, &mut frame);
         self.io.flush();
         r.map(|_| ()).map_err(into_error)
@@ -104,7 +113,12 @@ impl Interp {
             Var::Upval(u) => f.upvals[u as usize].borrow().clone(),
         };
         if let Value::Undef = v {
-            return Err(err(ErrorKind::Name, pos, format!("variable '{name}' is used before it is initialized")).into());
+            return Err(err(
+                ErrorKind::Name,
+                pos,
+                format!("variable '{name}' is used before it is initialized"),
+            )
+            .into());
         }
         Ok(v)
     }
@@ -147,7 +161,11 @@ impl Interp {
         for h in hoists {
             match h {
                 Hoist::Struct(slot, proto) => {
-                    let defaults = proto.defaults.iter().map(|d| d.map(|idx| self.make_closure(idx, f))).collect();
+                    let defaults = proto
+                        .defaults
+                        .iter()
+                        .map(|d| d.map(|idx| self.make_closure(idx, f)))
+                        .collect();
                     let ty = StructType {
                         name: proto.name.clone(),
                         fields: proto.fields.clone(),
@@ -160,9 +178,17 @@ impl Interp {
                     let c = self.make_closure(*idx, f);
                     self.store(*slot, Value::Func(c), f);
                 }
-                Hoist::Impl { target, name, methods, pos } => {
+                Hoist::Impl {
+                    target,
+                    name,
+                    methods,
+                    pos,
+                } => {
                     let ty = self.load(*target, name, *pos, f)?;
-                    let ms = methods.iter().map(|(n, idx)| (n.clone(), self.make_closure(*idx, f))).collect();
+                    let ms = methods
+                        .iter()
+                        .map(|(n, idx)| (n.clone(), self.make_closure(*idx, f)))
+                        .collect();
                     ops::add_methods(&ty, name, ms, *pos)?;
                 }
             }
@@ -178,7 +204,9 @@ impl Interp {
 
     /// 执行语句序列，返回最后一条表达式语句的值。
     fn run_stmts(&mut self, stmts: &[Stmt], f: &mut Frame) -> R<Value> {
-        let Some((last, init)) = stmts.split_last() else { return Ok(Value::Nil) };
+        let Some((last, init)) = stmts.split_last() else {
+            return Ok(Value::Nil);
+        };
         for s in init {
             self.exec(s, f)?;
         }
@@ -212,7 +240,13 @@ impl Interp {
                     Err(e) => return Err(e),
                 }
             },
-            Stmt::For { index, var, iter, body, pos } => self.exec_for(*index, *var, iter, body, *pos, f)?,
+            Stmt::For {
+                index,
+                var,
+                iter,
+                body,
+                pos,
+            } => self.exec_for(*index, *var, iter, body, *pos, f)?,
             Stmt::Break => return Err(Ctrl::Break),
             Stmt::Continue => return Err(Ctrl::Continue),
             Stmt::Return(e) => {
@@ -269,13 +303,22 @@ impl Interp {
     }
 
     /// 执行一轮循环体；返回 `false` 表示 `break`。
-    fn loop_iteration(&mut self, index: Option<(Slot, i64)>, var: Slot, item: Value, body: &Block, f: &mut Frame) -> R<bool> {
+    fn loop_iteration(
+        &mut self,
+        index: Option<(Slot, i64)>,
+        var: Slot,
+        item: Value,
+        body: &Block,
+        f: &mut Frame,
+    ) -> R<bool> {
         Self::alloc_cells(&body.cells, f);
         if let Some((slot, i)) = index {
             self.store(slot, Value::Int(i), f);
         }
         self.store(var, item, f);
-        let r = self.run_hoists(&body.hoists, f).and_then(|_| self.run_stmts(&body.stmts, f));
+        let r = self
+            .run_hoists(&body.hoists, f)
+            .and_then(|_| self.run_stmts(&body.stmts, f));
         match r {
             Ok(_) | Err(Ctrl::Continue) => Ok(true),
             Err(Ctrl::Break) => Ok(false),
@@ -283,7 +326,15 @@ impl Interp {
         }
     }
 
-    fn exec_for(&mut self, index: Option<Slot>, var: Slot, iter: &Expr, body: &Block, pos: Pos, f: &mut Frame) -> R<()> {
+    fn exec_for(
+        &mut self,
+        index: Option<Slot>,
+        var: Slot,
+        iter: &Expr,
+        body: &Block,
+        pos: Pos,
+        f: &mut Frame,
+    ) -> R<()> {
         let it = self.eval(iter, f)?;
         let idx = |i: i64| index.map(|s| (s, i));
         match it {
@@ -371,7 +422,12 @@ impl Interp {
                 let b = self.eval(b, f)?;
                 Ok(ops::make_range(&a, &b, *inclusive, *pos)?)
             }
-            Expr::Call { callee, args, names, pos } => {
+            Expr::Call {
+                callee,
+                args,
+                names,
+                pos,
+            } => {
                 let fv = self.eval(callee, f)?;
                 if let Value::Func(clo) = &fv {
                     if names.is_some() {
@@ -387,7 +443,13 @@ impl Interp {
                 let vals = self.eval_args(args, f)?;
                 self.call_value(&fv, vals, names.as_deref(), *pos)
             }
-            Expr::MethodCall { obj, name, fallback, args, pos } => {
+            Expr::MethodCall {
+                obj,
+                name,
+                fallback,
+                args,
+                pos,
+            } => {
                 let o = self.eval(obj, f)?;
                 let callee = match (ops::find_method(&o, name), fallback) {
                     (Some(m), _) => Value::Func(m),
@@ -492,11 +554,19 @@ impl Interp {
         }
         self.depth += 1;
         self.stack.resize(base + p.n_locals, Value::Nil);
-        let mut cells = if p.n_cells > 0 { vec![self.placeholder.clone(); p.n_cells] } else { Vec::new() };
+        let mut cells = if p.n_cells > 0 {
+            vec![self.placeholder.clone(); p.n_cells]
+        } else {
+            Vec::new()
+        };
         for &(i, c) in &p.param_cells {
             cells[c as usize] = new_cell(self.stack[base + i].clone());
         }
-        let mut frame = Frame { base, cells, upvals: &clo.upvals };
+        let mut frame = Frame {
+            base,
+            cells,
+            upvals: &clo.upvals,
+        };
         let r = self.exec_block(&p.body, &mut frame);
         self.stack.truncate(base);
         self.depth -= 1;

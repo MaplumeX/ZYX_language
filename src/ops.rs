@@ -64,7 +64,15 @@ fn as_float(v: &Value) -> Option<f64> {
 }
 
 fn bad_operands(op: BinOp, a: &Value, b: &Value, pos: Pos) -> ZyxError {
-    type_err(pos, format!("unsupported operand types for '{}': {} and {}", op.symbol(), a.type_name(), b.type_name()))
+    type_err(
+        pos,
+        format!(
+            "unsupported operand types for '{}': {} and {}",
+            op.symbol(),
+            a.type_name(),
+            b.type_name()
+        ),
+    )
 }
 
 pub fn binary(op: BinOp, a: &Value, b: &Value, pos: Pos) -> Result<Value> {
@@ -77,7 +85,11 @@ pub fn binary(op: BinOp, a: &Value, b: &Value, pos: Pos) -> Result<Value> {
         (BinOp::Mod, Int(x), Int(y)) => Int(floor_mod(*x, *y, pos)?),
         (BinOp::Pow, Int(x), Int(y)) => {
             if *y < 0 {
-                return Err(err(ErrorKind::Value, pos, "negative exponent in integer power, use a float base"));
+                return Err(err(
+                    ErrorKind::Value,
+                    pos,
+                    "negative exponent in integer power, use a float base",
+                ));
             }
             let e = u32::try_from(*y).map_err(|_| overflow(pos))?;
             Int(x.checked_pow(e).ok_or_else(|| overflow(pos))?)
@@ -93,7 +105,10 @@ pub fn binary(op: BinOp, a: &Value, b: &Value, pos: Pos) -> Result<Value> {
         (BinOp::Ne, _, _) => Value::Bool(!values_equal(a, b)),
         (BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge, _, _) => {
             let Some(ord) = compare(a, b) else {
-                return Err(type_err(pos, format!("cannot compare {} and {}", a.type_name(), b.type_name())));
+                return Err(type_err(
+                    pos,
+                    format!("cannot compare {} and {}", a.type_name(), b.type_name()),
+                ));
             };
             Value::Bool(match op {
                 BinOp::Lt => ord.is_lt(),
@@ -133,20 +148,35 @@ pub fn unary(op: UnOp, v: &Value, pos: Pos) -> Result<Value> {
 
 pub fn make_range(a: &Value, b: &Value, inclusive: bool, pos: Pos) -> Result<Value> {
     let (Value::Int(start), Value::Int(end)) = (a, b) else {
-        return Err(type_err(pos, format!("range bounds must be int, got {} and {}", a.type_name(), b.type_name())));
+        return Err(type_err(
+            pos,
+            format!("range bounds must be int, got {} and {}", a.type_name(), b.type_name()),
+        ));
     };
-    let end = if inclusive { end.checked_add(1).ok_or_else(|| overflow(pos))? } else { *end };
+    let end = if inclusive {
+        end.checked_add(1).ok_or_else(|| overflow(pos))?
+    } else {
+        *end
+    };
     Ok(Value::range(*start, end))
 }
 
 /// 负数下标从末尾倒数。
 pub fn norm_index(i: i64, len: usize) -> Option<usize> {
     let i = if i < 0 { i + len as i64 } else { i };
-    if i >= 0 && (i as usize) < len { Some(i as usize) } else { None }
+    if i >= 0 && (i as usize) < len {
+        Some(i as usize)
+    } else {
+        None
+    }
 }
 
 fn index_err(i: i64, what: &str, len: usize, pos: Pos) -> ZyxError {
-    err(ErrorKind::Index, pos, format!("index {i} out of range for {what} of length {len}"))
+    err(
+        ErrorKind::Index,
+        pos,
+        format!("index {i} out of range for {what} of length {len}"),
+    )
 }
 
 /// 切片端点：负数从末尾倒数，再截断到 `0..=len`。
@@ -192,10 +222,14 @@ pub fn index_get(c: &Value, i: &Value, pos: Pos) -> Result<Value> {
             let (a, b) = clamp_slice(r.0, r.1, len);
             Ok(Value::string(s.chars().skip(a).take(b - a).collect()))
         }
-        (Value::Array(_) | Value::Str(_), other) => {
-            Err(type_err(pos, format!("index must be int or range, got {}", other.type_name())))
-        }
-        (other, _) => Err(type_err(pos, format!("{} does not support indexing", other.type_name()))),
+        (Value::Array(_) | Value::Str(_), other) => Err(type_err(
+            pos,
+            format!("index must be int or range, got {}", other.type_name()),
+        )),
+        (other, _) => Err(type_err(
+            pos,
+            format!("{} does not support indexing", other.type_name()),
+        )),
     }
 }
 
@@ -212,9 +246,15 @@ pub fn index_set(c: &Value, i: &Value, v: Value, pos: Pos) -> Result<()> {
                 None => Err(index_err(*n, "array", len, pos)),
             }
         }
-        (Value::Array(_), other) => Err(type_err(pos, format!("array index must be int, got {}", other.type_name()))),
+        (Value::Array(_), other) => Err(type_err(
+            pos,
+            format!("array index must be int, got {}", other.type_name()),
+        )),
         (Value::Str(_), _) => Err(type_err(pos, "strings are immutable")),
-        (other, _) => Err(type_err(pos, format!("{} does not support index assignment", other.type_name()))),
+        (other, _) => Err(type_err(
+            pos,
+            format!("{} does not support index assignment", other.type_name()),
+        )),
     }
 }
 
@@ -244,7 +284,10 @@ pub fn field_set(obj: &Value, name: &str, v: Value, pos: Pos) -> Result<()> {
 // ---------- 调用相关（两个后端共用） ----------
 
 pub fn arity_error(proto: &FnProto, argc: usize, pos: Pos) -> ZyxError {
-    let name = proto.name.as_deref().map_or_else(|| "anonymous function".to_string(), |n| format!("function '{n}'"));
+    let name = proto
+        .name
+        .as_deref()
+        .map_or_else(|| "anonymous function".to_string(), |n| format!("function '{n}'"));
     let s = if proto.arity == 1 { "" } else { "s" };
     type_err(pos, format!("{name} expects {} argument{s}, got {argc}", proto.arity))
 }
@@ -258,7 +301,14 @@ pub fn not_callable(v: &Value, pos: Pos) -> ZyxError {
 }
 
 pub fn no_method_error(obj: &Value, name: &str, pos: Pos) -> ZyxError {
-    err(ErrorKind::Name, pos, format!("{} has no method '{name}' and no function '{name}' is defined", obj.type_name()))
+    err(
+        ErrorKind::Name,
+        pos,
+        format!(
+            "{} has no method '{name}' and no function '{name}' is defined",
+            obj.type_name()
+        ),
+    )
 }
 
 pub fn stack_overflow(pos: Pos) -> ZyxError {
@@ -301,7 +351,10 @@ pub fn construct(
     match names {
         None => {
             if args.len() > n {
-                return Err(type_err(pos, format!("{} has {n} fields, got {} arguments", ty.name, args.len())));
+                return Err(type_err(
+                    pos,
+                    format!("{} has {n} fields, got {} arguments", ty.name, args.len()),
+                ));
             }
             for (slot, v) in vals.iter_mut().zip(args) {
                 *slot = Some(v);
@@ -322,9 +375,15 @@ pub fn construct(
             (Some(v), _) => v,
             (None, Some(d)) => call_default(d)?,
             (None, None) => {
-                return Err(type_err(pos, format!("missing field '{}' when constructing {}", ty.fields[k], ty.name)));
+                return Err(type_err(
+                    pos,
+                    format!("missing field '{}' when constructing {}", ty.fields[k], ty.name),
+                ));
             }
         });
     }
-    Ok(Value::Struct(Rc::new(Instance { ty: ty.clone(), fields: RefCell::new(fields) })))
+    Ok(Value::Struct(Rc::new(Instance {
+        ty: ty.clone(),
+        fields: RefCell::new(fields),
+    })))
 }

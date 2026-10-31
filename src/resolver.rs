@@ -18,7 +18,13 @@ use crate::value::Value;
 
 pub fn resolve(prog: &ast::Program) -> Result<Program> {
     let methods = Prescan::run(prog).methods;
-    let mut r = Resolver { fns: Vec::new(), protos: Vec::new(), interner: HashMap::new(), n_globals: 0, methods };
+    let mut r = Resolver {
+        fns: Vec::new(),
+        protos: Vec::new(),
+        interner: HashMap::new(),
+        n_globals: 0,
+        methods,
+    };
     r.fns.push(FnCtx::new(prescan(prog), true));
     let (body, _) = r.block(prog, &[])?;
     let ctx = r.fns.pop().expect("script context");
@@ -32,8 +38,16 @@ pub fn resolve(prog: &ast::Program) -> Result<Program> {
         upvals: Vec::new(),
         body,
     });
-    let protos = r.protos.into_iter().map(|p| p.expect("every function is resolved")).collect();
-    Ok(Program { main, protos, n_globals: r.n_globals as usize })
+    let protos = r
+        .protos
+        .into_iter()
+        .map(|p| p.expect("every function is resolved"))
+        .collect();
+    Ok(Program {
+        main,
+        protos,
+        n_globals: r.n_globals as usize,
+    })
 }
 
 struct Resolver {
@@ -133,7 +147,12 @@ impl Resolver {
 
     fn push_scope(&mut self) {
         let base = self.ctx().next_local;
-        self.ctx().scopes.push(Scope { names: Vec::new(), cells: Vec::new(), pending: Vec::new(), local_base: base });
+        self.ctx().scopes.push(Scope {
+            names: Vec::new(),
+            cells: Vec::new(),
+            pending: Vec::new(),
+            local_base: base,
+        });
     }
 
     /// 先解析推迟到本作用域结束的函数体，再弹出作用域，返回需要在进入时分配的单元格。
@@ -293,7 +312,13 @@ impl Resolver {
                     let decl = Rc::new(ast::FnDecl {
                         name: None,
                         params: Vec::new(),
-                        body: ast::Block { stmts: vec![ast::Stmt { kind: StmtKind::Expr(e.clone()), pos: e.pos }], pos: e.pos },
+                        body: ast::Block {
+                            stmts: vec![ast::Stmt {
+                                kind: StmtKind::Expr(e.clone()),
+                                pos: e.pos,
+                            }],
+                            pos: e.pos,
+                        },
                         pos: e.pos,
                     });
                     let idx = self.placeholder();
@@ -319,7 +344,12 @@ impl Resolver {
                     impl_idx[i].push(idx);
                     ms.push((self.intern(m.name.as_deref().expect("named method")), idx));
                 }
-                hoists.push(Hoist::Impl { target, name: self.intern(name), methods: ms, pos: s.pos });
+                hoists.push(Hoist::Impl {
+                    target,
+                    name: self.intern(name),
+                    methods: ms,
+                    pos: s.pos,
+                });
             }
         }
 
@@ -338,12 +368,22 @@ impl Resolver {
             }
         }
         // 块的值是最后一条语句的值；最后一条是声明时值为 nil
-        if stmts.last().is_some_and(|s| matches!(s.kind, StmtKind::Fn(_) | StmtKind::Struct(_) | StmtKind::Impl { .. })) {
+        if stmts
+            .last()
+            .is_some_and(|s| matches!(s.kind, StmtKind::Fn(_) | StmtKind::Struct(_) | StmtKind::Impl { .. }))
+        {
             out.push(Stmt::Expr(Expr::Const(Value::Nil)));
         }
 
         let cells = self.pop_scope()?;
-        Ok((Block { cells, hoists, stmts: out }, pre_slots))
+        Ok((
+            Block {
+                cells,
+                hoists,
+                stmts: out,
+            },
+            pre_slots,
+        ))
     }
 
     // ---------- 语句 ----------
@@ -382,8 +422,18 @@ impl Resolver {
                 }
                 pre.push(var.as_str());
                 let (b, slots) = self.block(&body.stmts, &pre)?;
-                let (index, var) = if index.is_some() { (Some(slots[0]), slots[1]) } else { (None, slots[0]) };
-                Stmt::For { index, var, iter: it, body: b, pos: iter.pos }
+                let (index, var) = if index.is_some() {
+                    (Some(slots[0]), slots[1])
+                } else {
+                    (None, slots[0])
+                };
+                Stmt::For {
+                    index,
+                    var,
+                    iter: it,
+                    body: b,
+                    pos: iter.pos,
+                }
             }
             StmtKind::Break => Stmt::Break,
             StmtKind::Continue => Stmt::Continue,
@@ -427,16 +477,27 @@ impl Resolver {
             ExprKind::Array(items) => Expr::Array(self.exprs(items)?),
             ExprKind::Unary(op, x) => Expr::Unary(*op, self.boxed(x)?, pos),
             ExprKind::Binary(op, a, b) => Expr::Binary(*op, self.boxed(a)?, self.boxed(b)?, pos),
-            ExprKind::Range { start, end, inclusive } => Expr::Range(self.boxed(start)?, self.boxed(end)?, *inclusive, pos),
+            ExprKind::Range { start, end, inclusive } => {
+                Expr::Range(self.boxed(start)?, self.boxed(end)?, *inclusive, pos)
+            }
             ExprKind::Call { callee, args } => {
                 let names = if args.iter().any(|a| a.name.is_some()) {
-                    Some(args.iter().map(|a| self.intern(a.name.as_deref().unwrap_or_default())).collect())
+                    Some(
+                        args.iter()
+                            .map(|a| self.intern(a.name.as_deref().unwrap_or_default()))
+                            .collect(),
+                    )
                 } else {
                     None
                 };
                 let callee = self.boxed(callee)?;
                 let values: Vec<ast::Expr> = args.iter().map(|a| a.value.clone()).collect();
-                Expr::Call { callee, args: self.exprs(&values)?, names, pos }
+                Expr::Call {
+                    callee,
+                    args: self.exprs(&values)?,
+                    names,
+                    pos,
+                }
             }
             ExprKind::MethodCall { obj, name, args } => {
                 if args.iter().any(|a| a.name.is_some()) {
@@ -453,7 +514,13 @@ impl Resolver {
                     return Err(name_err(pos, format!("undefined function or method '{name}'")));
                 }
                 let values: Vec<ast::Expr> = args.iter().map(|a| a.value.clone()).collect();
-                Expr::MethodCall { obj, name: self.intern(name), fallback, args: self.exprs(&values)?, pos }
+                Expr::MethodCall {
+                    obj,
+                    name: self.intern(name),
+                    fallback,
+                    args: self.exprs(&values)?,
+                    pos,
+                }
             }
             ExprKind::Index(a, i) => Expr::Index(self.boxed(a)?, self.boxed(i)?, pos),
             ExprKind::Field(a, f) => Expr::Field(self.boxed(a)?, self.intern(f), pos),
@@ -483,7 +550,12 @@ impl Resolver {
                     };
                     let body = self.expr(&arm.body)?;
                     let cells = self.pop_scope()?;
-                    out.push(Arm { cells, pattern, guard, body });
+                    out.push(Arm {
+                        cells,
+                        pattern,
+                        guard,
+                        body,
+                    });
                 }
                 Expr::Match(subj, out, pos)
             }
@@ -500,7 +572,11 @@ impl Resolver {
             ast::Pattern::Str(s) => Pattern::Lit(Value::str(s)),
             ast::Pattern::Bool(b) => Pattern::Lit(Value::Bool(*b)),
             ast::Pattern::Nil => Pattern::Lit(Value::Nil),
-            ast::Pattern::Range { lo, hi, inclusive } => Pattern::Range { lo: *lo, hi: *hi, inclusive: *inclusive },
+            ast::Pattern::Range { lo, hi, inclusive } => Pattern::Range {
+                lo: *lo,
+                hi: *hi,
+                inclusive: *inclusive,
+            },
             ast::Pattern::Or(ps) => Pattern::Or(ps.iter().map(|p| self.pattern(p)).collect()),
         }
     }
@@ -524,7 +600,12 @@ struct Prescan {
 
 impl Prescan {
     fn run(stmts: &[ast::Stmt]) -> Self {
-        let mut p = Prescan { out: HashSet::new(), methods: HashSet::new(), excluded: Vec::new(), depth: 0 };
+        let mut p = Prescan {
+            out: HashSet::new(),
+            methods: HashSet::new(),
+            excluded: Vec::new(),
+            depth: 0,
+        };
         p.stmts(stmts);
         p
     }
