@@ -21,6 +21,8 @@ print("total = {total}")          # total = 143
 zyx hello.zyx            # 运行脚本（默认后端）
 zyx --backend tree a.zyx # 指定树遍历后端
 zyx --backend vm a.zyx   # 指定字节码虚拟机后端
+zyx --ast a.zyx          # 打印语法树（S 表达式），不执行
+zyx --dis a.zyx          # 打印编译后的字节码，不执行
 ```
 
 ---
