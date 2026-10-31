@@ -79,6 +79,8 @@ builtins! {
     "float", 1, 1, to_float;
     "str", 1, 1, to_str;
     "parse_int", 1, 1, parse_int;
+    "parse_float", 1, 1, parse_float;
+    "fixed", 2, 2, fixed;
     "len", 1, 1, len;
     "array", 2, 2, make_array;
     "copy", 1, 1, copy;
@@ -272,7 +274,7 @@ fn to_float(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Valu
         Value::Int(n) => *n as f64,
         Value::Float(x) => *x,
         Value::Bool(b) => *b as i64 as f64,
-        Value::Str(s) => s.trim().parse::<f64>().map_err(|_| {
+        Value::Str(s) => parse_float_str(s).ok_or_else(|| {
             err(
                 ErrorKind::Value,
                 pos,
@@ -293,6 +295,40 @@ fn to_str(_: &mut dyn Runtime, args: &mut Vec<Value>, _: Pos) -> Result<Value> {
 fn parse_int(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
     let s = str_arg(&args[0], "parse_int", pos)?;
     Ok(parse_int_str(s).map(Value::Int).unwrap_or(Value::Nil))
+}
+
+fn parse_float_str(s: &str) -> Option<f64> {
+    s.trim().parse::<f64>().ok()
+}
+
+fn parse_float(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    let s = str_arg(&args[0], "parse_float", pos)?;
+    Ok(parse_float_str(s).map(Value::Float).unwrap_or(Value::Nil))
+}
+
+/// `fixed` 允许的最大小数位数。
+const MAX_FIXED_DIGITS: i64 = 20;
+
+/// 格式化为恰好 `n` 位小数。按浮点数的精确二进制值舍入（与 Python 的 `f"{x:.2f}"` 一致）。
+fn fixed(_: &mut dyn Runtime, args: &mut Vec<Value>, pos: Pos) -> Result<Value> {
+    let digits = int_arg(&args[1], "fixed", pos)?;
+    if !(0..=MAX_FIXED_DIGITS).contains(&digits) {
+        return Err(err(
+            ErrorKind::Value,
+            pos,
+            format!("fixed() digits must be between 0 and {MAX_FIXED_DIGITS}, got {digits}"),
+        ));
+    }
+    let digits = digits as usize;
+    let s = match &args[0] {
+        // 整数直接补零，避免大整数转成浮点数时丢失精度
+        Value::Int(n) if digits == 0 => n.to_string(),
+        Value::Int(n) => format!("{n}.{}", "0".repeat(digits)),
+        Value::Float(x) if !x.is_finite() => crate::value::format_float(*x),
+        Value::Float(x) => format!("{x:.digits$}"),
+        other => return Err(type_err(pos, format!("fixed() expects a number, got {}", other.type_name()))),
+    };
+    Ok(Value::string(s))
 }
 
 // ---------- 数组与通用 ----------

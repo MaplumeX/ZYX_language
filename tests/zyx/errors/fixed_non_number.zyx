@@ -1,0 +1,2 @@
+print(fixed("1.5", 2))
+# expect-error: [line 1:12] TypeError: fixed() expects a number, got str

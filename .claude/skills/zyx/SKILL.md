@@ -21,7 +21,7 @@ ZYX 看起来像 Rust/JS 和 Python 的混合，但有几条规则和它们**都
 | 8 | `"{join(xs, " ")}"`、`"{f("x")}"` | `let line = join(xs, " ")` 再 `"{line}"` | 插值 `{...}` 里**不能出现字符串字面量**，最常见于在插值里调用 `join` |
 | 9 | `Point { x: 1, y: 2 }`、`new Point(...)` | `Point(1, 2)` 或 `Point(x: 1, y: 2)` | 结构体名就是构造函数 |
 | 10 | `dict = {}`、`d["key"]` | 结构体数组，或两个平行数组 | **没有字典 / 映射类型**，`{ }` 是代码块 |
-| 11 | `try { } catch` | 先校验：`parse_int(s)` 失败返回 `nil` | 没有异常捕获，任何错误都会终止程序 |
+| 11 | `try { } catch` | 先校验：`parse_int(s)` / `parse_float(s)` 失败返回 `nil` | 没有异常捕获，任何错误都会终止程序 |
 | 12 | `a[1..]`、`a[..3]` | `a[1..len(a)]`、`a[0..3]`、`a[-2..len(a)]` | 开区间 `a..` / `..b` 只能用在 `match` 模式里 |
 
 其他常见坑：
@@ -152,7 +152,9 @@ print(xs.len(), len(xs))               # x.f(a) 等价于 f(x, a)
 | | `input(prompt?)` | 先输出提示语（**不换行**，标准输入是管道时也照样输出），再读一行（去掉换行符）；**输入结束时返回 `nil`** |
 | 转换 | `int(x)` | 字符串（允许首尾空白）、float（向零截断）、bool → int；失败报 `ValueError` |
 | | `parse_int(s)` | 同 `int`，但失败返回 `nil`，**校验用户输入用它** |
-| | `float(x)` | int、bool、字符串（允许首尾空白，如 `float(" 2.5 ")`）→ float；字符串不合法时报 `ValueError`，**没有** `parse_float`，需要校验浮点输入时自己检查字符 |
+| | `float(x)` | int、bool、字符串（允许首尾空白，如 `float(" 2.5 ")`）→ float；字符串不合法时报 `ValueError` |
+| | `parse_float(s)` | 同 `float`，但失败返回 `nil`，校验小数输入用它 |
+| | `fixed(x, n)` | 把数格式化为恰好 n 位小数的**字符串**：`fixed(3.14159, 2) == "3.14"`、`fixed(5, 2) == "5.00"`；按精确二进制值舍入，与 Python 的 `f"{x:.2f}"` 一致（`fixed(2.675, 2) == "2.67"`） |
 | | `str(x)`、`type(x)` | `type` 返回 `"int"`、`"float"`、`"str"`、`"bool"`、`"nil"`、`"array"`、`"range"`、`"fn"` 或结构体名 |
 | 数组 | `len(x)` | 数组、字符串、区间的长度 |
 | | `array(n, v)` | 长度为 n 的数组，每项为 v；v 是数组时每项是独立副本，适合建二维数组：`array(4, array(4, 0))` |
@@ -178,7 +180,7 @@ print(xs.len(), len(xs))               # x.f(a) 等价于 f(x, a)
 | | `error(msg)` | 主动报错并终止 |
 | | `exit(code?)` | 结束程序 |
 
-不存在的东西：字典、集合、元组、类、继承、模块导入、文件读写、格式化占位符（`%d`、`{:>5}`）、可变参数的用户函数、位运算。
+不存在的东西：字典、集合、元组、类、继承、模块导入、文件读写、格式化占位符（`%d`、`{:>5}`，用 `fixed` 和 `pad_left` 代替）、可变参数的用户函数、位运算。
 
 ### 排序
 
@@ -208,20 +210,17 @@ let ranked = items |> sort(fn(e) => e.name) |> sort(fn(e) => -e.count)
 | 结构体实例 | `Point(x: 1, y: 2)` |
 | 区间 `0..=3` | `0..4` |
 
-没有格式化占位符。保留一位小数可以算 `round(x * 10) / 10.0`，但它是 float，`20.0` 会打印成 `20.0` 而不是 `20.00`。需要固定位数时用下面的函数（返回字符串），对齐再配合 `pad_left` / `pad_right`：
+没有格式化占位符。固定小数位用 `fixed`，对齐再配合 `pad_left` / `pad_right`：
 
 ```zyx
-# 保留两位小数（四舍五入），返回字符串：fmt2(20) == "20.00"，fmt2(-0.5) == "-0.50"
-fn fmt2(x) {
-    let cents = round(x * 100)
-    let sign = if cents < 0 { "-" } else { "" }
-    let c = abs(cents)
-    let frac = pad_left(c % 100, 2, "0")     # 先存进变量：插值里不能写 "0"
-    "{sign}{c / 100}.{frac}"
-}
+let price = 20
+let total = 3 * 2.5
+print(fixed(price, 2), fixed(total, 2))            # 20.00 7.50
+let cell = pad_left(fixed(total, 2), 10)           # 先存进变量再插值
+print("|{cell}|")                                  # |      7.50|
 ```
 
-注意浮点误差：`fmt2(7.005)` 的结果取决于 `7.005 * 100` 的二进制近似值。
+`round(x * 10) / 10.0` 得到的是 float，`20.0` 只会打印成 `20.0`，需要 `20.00` 这种固定位数时一定要用 `fixed`。
 
 ### 关键字（都是保留字，不能当变量名）
 
@@ -377,7 +376,7 @@ show(board)
 - [ ] 需要小数结果的除法用了 `float()`
 - [ ] 没有 `!`、`&&`、`||`、`elif`、单引号、`{}` 字典、`Point{...}`
 - [ ] 插值 `{...}` 里没有字符串字面量
-- [ ] 读取输入时处理了 `input()` 返回 `nil` 和 `parse_int` 返回 `nil` 的情况
+- [ ] 读取输入时处理了 `input()` 返回 `nil` 和 `parse_int` / `parse_float` 返回 `nil` 的情况
 - [ ] 用了 `sort` / `reverse` 的返回值，而不是期望它们原地修改
 - [ ] `match` 有兜底分支 `_`
 - [ ] 实际运行过一遍（`./target/release/zyx 文件.zyx`），按报错中的行列号修正

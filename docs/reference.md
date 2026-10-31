@@ -454,6 +454,8 @@ let grade = match score {
 | `int(x)` | 字符串按十进制解析（允许首尾空白）；浮点向零截断；布尔转 0/1；失败报 `ValueError` |
 | `float(x)` | 转为浮点；失败报 `ValueError` |
 | `parse_int(s)` | 同 `int(s)`，但解析失败时返回 `nil` 而不报错，用于校验用户输入 |
+| `parse_float(s)` | 同 `float(s)`，但解析失败时返回 `nil` 而不报错 |
+| `fixed(x, n)` | 把数 `x` 格式化为恰好 `n` 位小数的字符串（`0 <= n <= 20`，否则报 `ValueError`）。按浮点数的精确二进制值舍入，与 Python 的 `f"{x:.2f}"` 一致：`fixed(3.14159, 2) == "3.14"`、`fixed(5, 2) == "5.00"`、`fixed(2.675, 2) == "2.67"` |
 | `str(x)` | 按 2.4 节规则转为字符串 |
 
 ### 8.3 数组与通用
@@ -522,7 +524,7 @@ let grade = match score {
 | `NameError` | 使用或赋值未声明的变量；调用的名字既不是函数也不是任何方法（以上在运行前报告）；变量在初始化前被使用；统一调用语法在运行时找不到方法或函数 |
 | `TypeError` | 类型不匹配；参数个数不对；字段不存在；条件不是 `bool` |
 | `IndexError` | 下标越界；对空数组 `pop` |
-| `ValueError` | `int("abc")` 等转换失败；负指数的整数幂 |
+| `ValueError` | `int("abc")` 等转换失败；负指数的整数幂；`fixed` 的位数超出 0 到 20 |
 | `AssertionError` | `assert` / `assert_eq` 失败 |
 | `RuntimeError` | 整数溢出；除以零；`match` 无分支匹配；栈溢出；`error()` |
 

@@ -48,7 +48,7 @@ make bench                                  # 运行性能测试并与 Python �
 |---|---|---|
 | 1. 语法规则文档 | [`docs/reference.md`](docs/reference.md) | 完整的词法、类型、表达式、语句、内置函数、错误规则，附 EBNF 语法与示例程序 |
 | 2. 解释器源程序 | [`src/`](src/) | 约 7200 行 Rust，零第三方依赖；结构见下文 |
-| 3. 黑盒测试集 | [`tests/zyx/`](tests/zyx/) | 101 个 ZYX 测试脚本，覆盖全部语言功能与各类错误；在两个后端上各运行一遍。`make test` 一条命令执行全部测试（另含 19 个 Rust 单元测试和 2048 自测） |
+| 3. 黑盒测试集 | [`tests/zyx/`](tests/zyx/) | 104 个 ZYX 测试脚本，覆盖全部语言功能与各类错误；在两个后端上各运行一遍。`make test` 一条命令执行全部测试（另含 19 个 Rust 单元测试和 2048 自测） |
 | 4. 性能测试报告 | [`docs/performance-report.md`](docs/performance-report.md) | 6 组 ZYX / Python 对照用例，虚拟机耗时为 CPython 3.12 的 0.99 到 2.99 倍；含三轮优化过程与原因分析 |
 | 5. 开发指南 | [`docs/guide.md`](docs/guide.md) | 面向人：构建、循序渐进的教程、调试、测试、项目结构 |
 | 5. 给 AI 使用的文档 | [`.claude/skills/zyx/SKILL.md`](.claude/skills/zyx/SKILL.md) | 面向编程 Agent：易错点、速查、内置函数、示例、自查清单。有效性验证见 [`docs/notes/skill-validation/`](docs/notes/skill-validation/) |
@@ -69,7 +69,7 @@ python3 tests/run_tests.py --backend vm match # 只运行路径中含 match 的�
 
 | 类别 | 数量 | 类别 | 数量 |
 |---|---|---|---|
-| 语法错误 `syntax/` | 27 | 运行时错误 `errors/` | 37 |
+| 语法错误 `syntax/` | 27 | 运行时错误 `errors/` | 40 |
 | 基础 `basics/` | 7 | 控制流 `control/` | 5 |
 | 函数与闭包 `functions/` | 5 | 数组 `arrays/` | 5 |
 | 内置函数 `builtins/` | 5 | 字符串 `strings/` | 3 |

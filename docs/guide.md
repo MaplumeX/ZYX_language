@@ -104,6 +104,8 @@ print("a-b-c".split("-"))      # ["a", "b", "c"]
 print(["x", "y"].join("+"))    # x+y
 let n = 42
 print("n 的平方是 {n * n}")     # 插值里可以写任意表达式
+print(fixed(3.14159, 2))       # 3.14，固定小数位，结果是字符串
+print(pad_left(42, 6, "."))    # ....42，补齐对齐
 ```
 
 字符串用双引号，不可修改，长度和下标都按字符计（中文也算一个字符）。`+` 只能连接两个字符串，数字要用插值或 `str()` 转换。
@@ -251,7 +253,7 @@ let total = 0
 while true {
     let line = input("输入一个数（直接回车结束）：")
     if line == nil or line == "" { break }   # nil 表示输入已结束
-    let n = parse_int(line)                  # 解析失败返回 nil，不会报错
+    let n = parse_int(line)                  # 解析失败返回 nil，不会报错（小数用 parse_float）
     if n == nil {
         print("“{line}” 不是整数，请重新输入")
         continue
