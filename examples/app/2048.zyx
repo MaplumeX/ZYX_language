@@ -247,6 +247,28 @@ fn self_test() {
     assert_eq(has_tile([[2048, 0], [0, 0]], WIN_TILE), true)
     assert_eq(has_tile([[1024, 0], [0, 0]], WIN_TILE), false)
 
+    # 游戏状态：计分、步数、胜利与结束判定
+    let g = Game(new_board())
+    g.reset()
+    assert_eq(len(empty_cells(g.board)), 14)
+    g.board = [[1024, 1024, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+    assert_eq(g.step("up"), false)
+    assert_eq(g.steps, 0)
+    assert_eq(g.step("left"), true)
+    assert_eq(g.score, 2048)
+    assert_eq(g.best, 2048)
+    assert_eq(g.steps, 1)
+    assert_eq(g.status(), "won")
+    assert_eq(g.status(), "ok")
+    g.reset()
+    assert_eq(g.score, 0)
+    assert_eq(g.best, 2048)
+    assert_eq(g.won, false)
+    g.board = [[2, 4, 2, 4], [4, 2, 4, 2], [2, 4, 2, 4], [4, 2, 4, 0]]
+    g.board[3][3] = 2
+    assert_eq(g.status(), "over")
+    assert_eq(g.over, true)
+
     print("self-test passed")
 }
 
@@ -290,6 +312,47 @@ impl Game {
         spawn_tile(self.board)
         true
     }
+
+    # 移动后的局面："won" 首次出现 2048，"over" 无路可走，"ok" 其他
+    fn status(self) {
+        if not self.won and has_tile(self.board, WIN_TILE) {
+            self.won = true
+            return "won"
+        }
+        if not can_move(self.board) {
+            self.over = true
+            return "over"
+        }
+        "ok"
+    }
+}
+
+fn announce_over(game) {
+    print("游戏结束！没有可以移动的方向了。")
+    print("最终分数: {game.score}  最高分: {game.best}  步数: {game.steps}")
+    print("输入 r 重新开始，或输入 q 退出。")
+}
+
+# 首次拼出 2048 后询问是否继续；返回 false 表示输入已结束
+fn ask_continue(game) {
+    print("恭喜！你拼出了 {WIN_TILE}！")
+    let ans = input("继续游戏吗？输入 y 继续，其他输入开始新局: ")
+    if ans == nil {
+        finish(game, "输入结束，游戏退出。")
+        return false
+    }
+    if ans.trim().lower() == "y" {
+        print("继续游戏，冲击更高分！")
+        if not can_move(game.board) {
+            game.over = true
+            announce_over(game)
+        }
+    } else {
+        game.reset()
+        print("已开始新局。")
+        game.render()
+    }
+    true
 }
 
 fn format_cell(v) {
@@ -331,9 +394,19 @@ fn run(game, pending) {
         let cmd = line.trim().lower()
         line = nil
         let dir = direction_of(cmd)
-        if dir != nil {
+        if game.over and cmd != "r" and cmd != "q" {
+            print("游戏已结束，输入 r 重新开始，或输入 q 退出。")
+        } else if dir != nil {
             if game.step(dir) {
                 game.render()
+                let st = game.status()
+                match st {
+                    "won" => {
+                        if not ask_continue(game) { return }
+                    },
+                    "over" => announce_over(game),
+                    _ => nil,
+                }
             } else {
                 print("无效移动：这个方向无法移动，换个方向试试。")
             }
