@@ -1,0 +1,257 @@
+# 终端 2048 —— 用 ZYX 编写
+# 运行：./target/release/zyx examples/app/2048.zyx
+# 首行输入 test 进入自测模式；首行输入 seed N 固定随机数。
+
+let SIZE = 4
+let WIN_TILE = 2048
+
+# ---------- 核心逻辑：单行合并 ----------
+
+struct LineResult { cells, score = 0 }
+
+# 把一行向左合并，返回新行和本行得分；同一次移动中每个方块最多合并一次
+fn merge_line(line) {
+    let tiles = line |> filter(fn(x) => x != 0)
+    let out = []
+    let score = 0
+    let i = 0
+    while i < len(tiles) {
+        if i + 1 < len(tiles) and tiles[i] == tiles[i + 1] {
+            let v = tiles[i] * 2
+            out.push(v)
+            score += v
+            i += 2
+        } else {
+            out.push(tiles[i])
+            i += 1
+        }
+    }
+    while len(out) < len(line) {
+        out.push(0)
+    }
+    LineResult(out, score)
+}
+
+# ---------- 核心逻辑：棋盘工具 ----------
+
+fn new_board() {
+    array(SIZE, array(SIZE, 0))
+}
+
+fn copy_board(b) {
+    b |> map(fn(row) => copy(row))
+}
+
+fn boards_equal(a, b) {
+    for r in 0..len(a) {
+        for c in 0..len(a[r]) {
+            if a[r][c] != b[r][c] { return false }
+        }
+    }
+    true
+}
+
+fn transpose(b) {
+    let n = len(b)
+    let t = array(n, array(n, 0))
+    for r in 0..n {
+        for c in 0..n {
+            t[c][r] = b[r][c]
+        }
+    }
+    t
+}
+
+fn reverse_rows(b) {
+    b |> map(fn(row) => reverse(row))
+}
+
+# ---------- 核心逻辑：四个方向的移动 ----------
+
+struct MoveResult { board, score = 0, moved = false }
+
+fn move_left(b) {
+    let out = []
+    let score = 0
+    for row in b {
+        let res = merge_line(row)
+        out.push(res.cells)
+        score += res.score
+    }
+    MoveResult(out, score, not boards_equal(b, out))
+}
+
+fn move_right(b) {
+    let res = move_left(reverse_rows(b))
+    MoveResult(reverse_rows(res.board), res.score, res.moved)
+}
+
+fn move_up(b) {
+    let res = move_left(transpose(b))
+    MoveResult(transpose(res.board), res.score, res.moved)
+}
+
+fn move_down(b) {
+    let res = move_right(transpose(b))
+    MoveResult(transpose(res.board), res.score, res.moved)
+}
+
+fn move_board(b, dir) {
+    match dir {
+        "left" => move_left(b),
+        "right" => move_right(b),
+        "up" => move_up(b),
+        "down" => move_down(b),
+        _ => error("unknown direction: " + dir),
+    }
+}
+
+# ---------- 核心逻辑：可行移动判定 ----------
+
+fn can_move(b) {
+    let n = len(b)
+    for r in 0..n {
+        for c in 0..n {
+            if b[r][c] == 0 { return true }
+            if c + 1 < n and b[r][c] == b[r][c + 1] { return true }
+            if r + 1 < n and b[r][c] == b[r + 1][c] { return true }
+        }
+    }
+    false
+}
+
+fn has_tile(b, value) {
+    for row in b {
+        if contains(row, value) { return true }
+    }
+    false
+}
+
+# ---------- 核心逻辑：生成新方块 ----------
+
+struct Cell { r, c }
+
+fn empty_cells(b) {
+    let cells = []
+    for r, row in b {
+        for c, v in row {
+            if v == 0 { cells.push(Cell(r, c)) }
+        }
+    }
+    cells
+}
+
+# 在随机空格放一个新方块：90% 是 2，10% 是 4；没有空格时返回 false
+fn spawn_tile(b) {
+    let cells = empty_cells(b)
+    if len(cells) == 0 { return false }
+    let cell = cells[random(0, len(cells) - 1)]
+    let value = if random(1, 10) == 1 { 4 } else { 2 }
+    b[cell.r][cell.c] = value
+    true
+}
+
+# ---------- 自测 ----------
+
+fn self_test() {
+    # 单行合并
+    assert_eq(merge_line([2, 2, 2, 2]).cells, [4, 4, 0, 0])
+    assert_eq(merge_line([2, 2, 2, 2]).score, 8)
+    assert_eq(merge_line([4, 4, 8, 0]).cells, [8, 8, 0, 0])
+    assert_eq(merge_line([4, 4, 8, 0]).score, 8)
+    assert_eq(merge_line([0, 0, 0, 2]).cells, [2, 0, 0, 0])
+    assert_eq(merge_line([2, 0, 2, 4]).cells, [4, 4, 0, 0])
+    assert_eq(merge_line([2, 4, 8, 16]).cells, [2, 4, 8, 16])
+    assert_eq(merge_line([2, 4, 8, 16]).score, 0)
+    assert_eq(merge_line([0, 0, 0, 0]).cells, [0, 0, 0, 0])
+    assert_eq(merge_line([8, 8, 8, 0]).cells, [16, 8, 0, 0])
+
+    # 四个方向
+    let b = [
+        [2, 0, 2, 0],
+        [0, 4, 0, 4],
+        [2, 0, 0, 2],
+        [0, 0, 0, 8],
+    ]
+    let l = move_left(b)
+    assert_eq(l.board, [[4, 0, 0, 0], [8, 0, 0, 0], [4, 0, 0, 0], [8, 0, 0, 0]])
+    assert_eq(l.score, 16)
+    assert(l.moved, "left should move")
+    let rr = move_right(b)
+    assert_eq(rr.board, [[0, 0, 0, 4], [0, 0, 0, 8], [0, 0, 0, 4], [0, 0, 0, 8]])
+    assert_eq(rr.score, 16)
+    let u = move_up(b)
+    assert_eq(u.board, [[4, 4, 2, 4], [0, 0, 0, 2], [0, 0, 0, 8], [0, 0, 0, 0]])
+    assert_eq(u.score, 4)
+    let d = move_down(b)
+    assert_eq(d.board, [[0, 0, 0, 0], [0, 0, 0, 4], [0, 0, 0, 2], [4, 4, 2, 8]])
+    assert_eq(d.score, 4)
+    # 原棋盘不被修改
+    assert_eq(b[0], [2, 0, 2, 0])
+    # move_board 分派
+    assert_eq(move_board(b, "left").board, l.board)
+    assert_eq(move_board(b, "down").board, d.board)
+
+    # 无效移动：已经靠左的棋盘不能再左移
+    let packed = [[2, 4, 0, 0], [8, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+    assert_eq(move_left(packed).moved, false)
+    assert_eq(move_up(packed).moved, false)
+    assert_eq(move_right(packed).moved, true)
+
+    # 无路可走的判定
+    let stuck = [
+        [2, 4, 2, 4],
+        [4, 2, 4, 2],
+        [2, 4, 2, 4],
+        [4, 2, 4, 2],
+    ]
+    assert_eq(can_move(stuck), false)
+    let mergeable = [
+        [2, 4, 2, 4],
+        [4, 2, 4, 2],
+        [2, 4, 2, 4],
+        [4, 2, 4, 4],
+    ]
+    assert_eq(can_move(mergeable), true)
+    let vertical = [
+        [2, 4, 2, 4],
+        [4, 2, 4, 2],
+        [2, 4, 2, 8],
+        [4, 2, 4, 8],
+    ]
+    assert_eq(can_move(vertical), true)
+    assert_eq(can_move(new_board()), true)
+    for dir in ["left", "right", "up", "down"] {
+        assert_eq(move_board(stuck, dir).moved, false)
+    }
+
+    # 生成新方块
+    seed(42)
+    let e = new_board()
+    assert_eq(len(empty_cells(e)), 16)
+    assert(spawn_tile(e), "spawn on empty board")
+    assert_eq(len(empty_cells(e)), 15)
+    let twos = 0
+    let fours = 0
+    let trial = 0
+    while trial < 200 {
+        let t = new_board()
+        spawn_tile(t)
+        let total = t |> map(fn(row) => sum(row)) |> sum()
+        if total == 2 { twos += 1 } else if total == 4 { fours += 1 }
+        trial += 1
+    }
+    assert_eq(twos + fours, 200)
+    assert(twos > fours, "2 should be much more common than 4")
+    assert_eq(spawn_tile(stuck), false)
+    assert_eq(has_tile([[2048, 0], [0, 0]], WIN_TILE), true)
+    assert_eq(has_tile([[1024, 0], [0, 0]], WIN_TILE), false)
+
+    print("self-test passed")
+}
+
+let first = input()
+if first != nil and first.trim().lower() == "test" {
+    self_test()
+    exit(0)
+}
