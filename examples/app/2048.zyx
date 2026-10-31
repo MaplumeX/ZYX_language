@@ -250,8 +250,135 @@ fn self_test() {
     print("self-test passed")
 }
 
-let first = input()
-if first != nil and first.trim().lower() == "test" {
-    self_test()
-    exit(0)
+# ---------- 游戏状态 ----------
+
+struct Game { board, score = 0, best = 0, steps = 0, won = false, over = false }
+
+impl Game {
+    # 开新局：清空棋盘并随机放两个方块，最高分保留
+    fn reset(self) {
+        self.board = new_board()
+        self.score = 0
+        self.steps = 0
+        self.won = false
+        self.over = false
+        spawn_tile(self.board)
+        spawn_tile(self.board)
+        self
+    }
+
+    fn render(self) {
+        let border = "+" + "------+" * SIZE
+        print("分数: {self.score}  最高分: {self.best}  步数: {self.steps}")
+        print(border)
+        for row in self.board {
+            let cells = row |> map(fn(v) => format_cell(v))
+            let line = join(cells, "|")
+            print("|{line}|")
+        }
+        print(border)
+    }
+
+    # 尝试按方向移动；棋盘真的变化时才生成新方块并计步，返回是否移动
+    fn step(self, dir) {
+        let res = move_board(self.board, dir)
+        if not res.moved { return false }
+        self.board = res.board
+        self.score += res.score
+        if self.score > self.best { self.best = self.score }
+        self.steps += 1
+        spawn_tile(self.board)
+        true
+    }
 }
+
+fn format_cell(v) {
+    let text = if v == 0 { "." } else { str(v) }
+    pad_left(text, 5) + " "
+}
+
+fn help_text() {
+    print("操作：w 上  a 左  s 下  d 右（大小写均可），回车确认")
+    print("      r 重新开始  h 显示帮助  q 退出")
+}
+
+fn direction_of(cmd) {
+    match cmd {
+        "w" => "up",
+        "a" => "left",
+        "s" => "down",
+        "d" => "right",
+        _ => nil,
+    }
+}
+
+fn finish(game, reason) {
+    print(reason)
+    print("最终分数: {game.score}  最高分: {game.best}  步数: {game.steps}")
+}
+
+# ---------- 主循环 ----------
+
+fn run(game, pending) {
+    game.render()
+    let line = pending
+    while true {
+        if line == nil { line = input("> ") }
+        if line == nil {
+            finish(game, "输入结束，游戏退出。")
+            return
+        }
+        let cmd = line.trim().lower()
+        line = nil
+        let dir = direction_of(cmd)
+        if dir != nil {
+            if game.step(dir) {
+                game.render()
+            } else {
+                print("无效移动：这个方向无法移动，换个方向试试。")
+            }
+        } else if cmd == "r" {
+            game.reset()
+            print("已重新开始。")
+            game.render()
+        } else if cmd == "h" {
+            help_text()
+        } else if cmd == "q" {
+            finish(game, "再见！")
+            return
+        } else {
+            print("未知命令：{cmd}，输入 h 查看帮助。")
+        }
+    }
+}
+
+fn main() {
+    let first = input()
+    if first == nil {
+        finish(Game(new_board()), "输入结束，游戏退出。")
+        return
+    }
+    let cmd = first.trim().lower()
+    if cmd == "test" {
+        self_test()
+        return
+    }
+    let pending = first
+    if starts_with(cmd, "seed") {
+        let n = parse_int(cmd[4..len(cmd)])
+        if n == nil {
+            print("seed 参数无效：{first}")
+        } else {
+            seed(n)
+            print("随机种子已设为 {n}")
+        }
+        pending = nil
+    }
+    let game = Game(new_board())
+    game.reset()
+    print("欢迎来到 2048！")
+    help_text()
+    run(game, pending)
+}
+
+main()

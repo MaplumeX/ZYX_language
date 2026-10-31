@@ -9,3 +9,11 @@
 - **问题**：无。`printf 'test\n' | ./target/release/zyx examples/app/2048.zyx` 第一次运行即输出 `self-test passed`，`--backend vm` 结果相同。
 - **解决**：无需修复。
 - **文档反馈**：`input(prompt?)` 没有说明 prompt 在 stdin 不是终端时是否也会输出、输出后是否换行，写交互界面前需要自己试一下。
+
+### 2. 游戏状态结构体、棋盘显示与命令循环（app(2048): 游戏状态结构体、棋盘显示与命令循环）
+
+- **目标**：用结构体 `Game` 保存棋盘、分数、最高分、步数，用 `impl` 实现 `reset`、`render`、`step`；实现读命令的主循环，支持 `w/a/s/d`（大小写）、`r`、`h`、`q`、未知命令提示、无效移动提示、输入结束退出，以及首行 `seed N`。
+- **做法**：`Game` 字段带默认值（`score = 0` 等，SKILL.md 第 2 节"结构体与方法"）；`render` 用 `pad_left(text, 5)` 让数字右对齐、格宽一致，空格显示 `.`；边框用 `"------+" * SIZE`（第 1 节"其他常见坑"说明字符串在左边才能乘）。为遵守第 1 条第 8 项"插值里不能有字符串字面量"，先 `let line = join(cells, "|")` 再插值。`direction_of` 用 `match` 把按键映射为方向并以 `_ => nil` 兜底。主循环用 `input("> ")`，返回 `nil` 时打印最终分数后退出；`seed` 参数用 `parse_int` 校验。先试验了 `input(prompt)` 的行为：stdin 是管道时提示符也会输出且不换行。
+- **问题**：无。`printf 'seed 1\na\nD\nw\nxyz\nh\ns\nr\nq\n' | ./target/release/zyx examples/app/2048.zyx` 第一次运行即符合预期：计分、步数、最高分在 `r` 后保留、未知命令提示、帮助、退出都正常；`seed 1` 后连按 `w` 得到 5 次"无效移动"提示且步数不增加；树遍历和 `--backend vm` 输出 `diff` 一致。
+- **解决**：无需修复。
+- **文档反馈**：无。
