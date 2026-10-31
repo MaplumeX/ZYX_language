@@ -1,0 +1,56 @@
+# 数学工具
+
+# (a) 1 到 100 之间的素数
+fn is_prime(n) {
+    if n < 2 { return false }
+    let d = 2
+    while d * d <= n {
+        if n % d == 0 { return false }
+        d += 1
+    }
+    true
+}
+
+let primes = 1..=100 |> filter(is_prime)
+print("(a) 1~100 素数个数: {len(primes)}, 总和: {sum(primes)}")
+
+# (b) 递归 gcd 与 lcm
+fn gcd(a, b) {
+    if b == 0 { return a }
+    gcd(b, a % b)
+}
+
+fn lcm(a, b) { a / gcd(a, b) * b }
+
+print("(b) gcd(84, 36) = {gcd(84, 36)}, lcm(4, 6) = {lcm(4, 6)}")
+
+# (c) 返回闭包的斐波那契生成器
+fn make_fib() {
+    let a = 0
+    let b = 1
+    fn() {
+        let r = a
+        let t = a + b
+        a = b
+        b = t
+        r
+    }
+}
+
+let next_fib = make_fib()
+let fibs = []
+for i in 0..15 {
+    fibs.push(next_fib())
+}
+let fib_line = join(fibs, " ")
+print("(c) 前 15 项: {fib_line}")
+
+# (d) 100 到 200 之间的回文数
+fn is_palindrome(n) {
+    let s = str(n)
+    s == join(reverse(split(s, "")), "")
+}
+
+let pals = 100..=200 |> filter(is_palindrome)
+let pal_line = join(pals, " ")
+print("(d) 100~200 回文数: {pal_line}")

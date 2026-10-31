@@ -1,0 +1,100 @@
+# 库存管理
+struct Item { name, qty, price }
+
+fn find(items, name) {
+    for i, it in items {
+        if it.name == name { return i }
+    }
+    -1
+}
+
+# 校验非负小数字符串，如 "5"、"1.5"、"3.75"
+fn is_number(s) {
+    if len(s) == 0 { return false }
+    let dots = 0
+    let digits = 0
+    for c in s {
+        if c == "." {
+            dots += 1
+        } else if ord(c) >= ord("0") and ord(c) <= ord("9") {
+            digits += 1
+        } else {
+            return false
+        }
+    }
+    dots <= 1 and digits > 0
+}
+
+# 保留 2 位小数（非负数）
+fn fmt2(v) {
+    let cents = round(v * 100)
+    let whole = cents / 100
+    let frac = pad_left(cents % 100, 2, "0")
+    "{whole}.{frac}"
+}
+
+fn value_of(it) { it.qty * it.price }
+
+let items = []
+
+fn report(items) {
+    let ranked = items
+        |> sort(fn(it) => it.name)
+        |> sort(fn(it) => -round(value_of(it) * 100))
+    let total = 0.0
+    for it in ranked {
+        let v = value_of(it)
+        total += v
+        print("{pad_right(it.name, 8)}{pad_left(it.qty, 5)}{pad_left(fmt2(v), 10)}")
+    }
+    print("总价值：{fmt2(total)}")
+}
+
+while true {
+    let line = input()
+    if line == nil { break }
+    let parts = line.trim().split(" ") |> filter(fn(w) => len(w) > 0)
+    let cmd = if len(parts) > 0 { parts[0] } else { "" }
+
+    if cmd == "add" and len(parts) == 4 {
+        let qty = parse_int(parts[2])
+        if qty == nil or not is_number(parts[3]) {
+            print("无效命令：{line}")
+            continue
+        }
+        if qty <= 0 {
+            print("无效命令：{line}")
+            continue
+        }
+        let price = float(parts[3])
+        let i = find(items, parts[1])
+        if i == -1 {
+            items.push(Item(parts[1], qty, price))
+        } else {
+            items[i].qty += qty
+            items[i].price = price
+        }
+    } else if cmd == "sell" and len(parts) == 3 {
+        let qty = parse_int(parts[2])
+        if qty == nil {
+            print("无效命令：{line}")
+            continue
+        }
+        if qty <= 0 {
+            print("无效命令：{line}")
+            continue
+        }
+        let i = find(items, parts[1])
+        if i == -1 {
+            print("错误：商品 {parts[1]} 不存在")
+        } else if items[i].qty < qty {
+            print("错误：{parts[1]} 库存不足（现有 {items[i].qty}，需要 {qty}）")
+        } else {
+            items[i].qty -= qty
+        }
+    } else if cmd == "report" and len(parts) == 1 {
+        report(items)
+    } else {
+        print("无效命令：{line}")
+    }
+}

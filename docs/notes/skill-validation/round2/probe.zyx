@@ -1,0 +1,5 @@
+let q = nil
+print(q == nil or q <= 0)
+print(q != nil and q > 0)
+fn f() { return }
+print(f())

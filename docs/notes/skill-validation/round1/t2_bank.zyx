@@ -1,0 +1,48 @@
+# 银行账户模拟
+struct Account { owner, balance = 0 }
+
+impl Account {
+    fn deposit(self, amount) {
+        self.balance += amount
+    }
+
+    fn withdraw(self, amount) {
+        if amount > self.balance { return false }
+        self.balance -= amount
+        true
+    }
+}
+
+fn transfer(from, to, amount) {
+    if not from.withdraw(amount) { return false }
+    to.deposit(amount)
+    true
+}
+
+let alice = Account("Alice", 100)
+let bob = Account("Bob", 50)
+
+alice.deposit(30)
+print("{alice.owner} 存入 30")
+
+if bob.withdraw(80) {
+    print("{bob.owner} 取出 80")
+} else {
+    print("{bob.owner} 取款 80 失败：余额不足（当前 {bob.balance}）")
+}
+
+if transfer(alice, bob, 70) {
+    print("{alice.owner} 向 {bob.owner} 转账 70 成功")
+} else {
+    print("{alice.owner} 向 {bob.owner} 转账 70 失败：余额不足")
+}
+
+if bob.withdraw(80) {
+    print("{bob.owner} 取出 80")
+} else {
+    print("{bob.owner} 取款 80 失败：余额不足（当前 {bob.balance}）")
+}
+
+for acc in [alice, bob] {
+    print("{acc.owner}: {acc.balance}")
+}

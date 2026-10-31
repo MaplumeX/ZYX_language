@@ -1,0 +1,33 @@
+# 词频统计：忽略大小写，去掉逗号、句号、感叹号，输出前 3 名
+struct Entry { word, count = 0 }
+
+fn find(entries, word) {
+    for i, e in entries {
+        if e.word == word { return i }
+    }
+    -1
+}
+
+let text = "The quick brown fox jumps over the lazy dog. The dog sleeps, the fox runs. A quick fox!"
+
+let cleaned = text.lower().replace(",", "").replace(".", "").replace("!", "")
+let words = cleaned.split(" ") |> filter(fn(w) => len(w) > 0)
+
+let entries = []
+for w in words {
+    let i = find(entries, w)
+    if i == -1 {
+        entries.push(Entry(w, 1))
+    } else {
+        entries[i].count += 1
+    }
+}
+
+# 先按单词升序，再按次数降序（稳定排序保证同次数时字母序不变）
+let ranked = entries |> sort(fn(e) => e.word) |> sort(fn(e) => -e.count)
+
+let top = min(3, len(ranked))
+for i in 0..top {
+    let e = ranked[i]
+    print("{e.word}: {e.count}")
+}

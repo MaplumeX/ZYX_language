@@ -1,0 +1,61 @@
+# 递归回溯
+
+# (a) 全排列：按升序尝试每个未用元素，生成顺序即字典序
+fn permute(xs, used, cur, out) {
+    if len(cur) == len(xs) {
+        out.push(copy(cur))
+        return nil
+    }
+    for i, x in xs {
+        if not used[i] {
+            used[i] = true
+            cur.push(x)
+            permute(xs, used, cur, out)
+            cur.pop()
+            used[i] = false
+        }
+    }
+}
+
+let base = sort([1, 2, 3, 4])
+let perms = []
+permute(base, array(len(base), false), [], perms)
+print("全排列总数：{len(perms)}")
+print("字典序最前的 5 个：")
+for p in perms[0..5] {
+    print(p)
+}
+
+# (b) N 皇后
+fn safe(cols, row, col) {
+    for r in 0..row {
+        let c = cols[r]
+        if c == col or abs(c - col) == row - r { return false }
+    }
+    true
+}
+
+fn queens(n, row, cols) {
+    if row == n { return 1 }
+    let count = 0
+    for col in 0..n {
+        if safe(cols, row, col) {
+            cols[row] = col
+            count += queens(n, row + 1, cols)
+        }
+    }
+    count
+}
+
+print("6 皇后解的个数：{queens(6, 0, array(6, -1))}")
+
+# (c) 分拆数：把 n 拆成若干个不超过 m 的正整数之和的方式数
+fn partitions(n, m) {
+    if n == 0 { return 1 }
+    if m == 0 { return 0 }
+    if m > n { return partitions(n, n) }
+    # 用到 m 或不用 m
+    partitions(n - m, m) + partitions(n, m - 1)
+}
+
+print("p(10) = {partitions(10, 10)}")

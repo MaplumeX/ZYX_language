@@ -1,0 +1,41 @@
+# 井字棋判定：棋盘是 3 个长度为 3 的字符串，字符为 X、O 或 .
+
+fn line_winner(s) {
+    if s == "XXX" { return "X" }
+    if s == "OOO" { return "O" }
+    nil
+}
+
+fn judge(board) {
+    let lines = []
+    for r in 0..3 {
+        lines.push(board[r])
+    }
+    for c in 0..3 {
+        lines.push(board[0][c] + board[1][c] + board[2][c])
+    }
+    lines.push(board[0][0] + board[1][1] + board[2][2])
+    lines.push(board[0][2] + board[1][1] + board[2][0])
+
+    for l in lines {
+        let w = line_winner(l)
+        if w != nil { return "{w} 胜" }
+    }
+    for row in board {
+        if contains(row, ".") { return "未结束" }
+    }
+    "平局"
+}
+
+let boards = [
+    ["XOX", "OXO", "OXX"],   # 主对角线 X 胜
+    ["XXX", "OO.", "..."],   # 第一行 X 胜
+    ["XOX", ".OX", "XO."],   # 中间列 O 胜
+    ["XOX", "XOO", "OXX"],   # 平局
+    ["X..", ".O.", "..."],   # 未结束
+]
+
+for b in boards {
+    let shown = join(b, " / ")
+    print("{shown} => {judge(b)}")
+}

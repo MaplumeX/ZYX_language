@@ -1,0 +1,10 @@
+add apple 10 1.5
+add pear 4 3.75
+add milk 3 5
+sell apple 4
+sell pear 9
+add apple 2 2.5
+sell bread 1
+hello world
+add egg 6 2.5
+report
